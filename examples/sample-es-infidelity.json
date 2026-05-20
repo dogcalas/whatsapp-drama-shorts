@@ -1,0 +1,36 @@
+{
+  "meta": {
+    "title": "El mensaje que no era para mí",
+    "theme": "infidelity",
+    "language": "es",
+    "hook": "Mi novio me mandó por error un mensaje que era para otra",
+    "twist": "La 'otra' era su hermana planeando mi cumpleaños sorpresa",
+    "estimatedDurationSeconds": 55
+  },
+  "chatName": "Diego ❤️",
+  "isGroup": false,
+  "participants": [
+    { "id": "a", "name": "Sofi", "isOwner": true, "avatarInitial": "S" },
+    { "id": "b", "name": "Diego", "isOwner": false, "color": "#7f5af0", "avatarInitial": "D" }
+  ],
+  "messages": [
+    { "from": "b", "kind": "text", "text": "amor ya casi salgo del trabajo", "preDelayMs": 600, "typingMs": 1400, "readDelayMs": 600, "emphasis": "normal" },
+    { "from": "a", "kind": "text", "text": "ok bb te espero", "preDelayMs": 900, "typingMs": 700, "readDelayMs": 500, "emphasis": "normal" },
+    { "from": "b", "kind": "text", "text": "oye dile a ella que llegamos a las 9 porfa", "preDelayMs": 1800, "typingMs": 1800, "readDelayMs": 700, "emphasis": "normal" },
+    { "from": "a", "kind": "text", "text": "...", "preDelayMs": 1600, "typingMs": 400, "readDelayMs": 600, "emphasis": "cold" },
+    { "from": "a", "kind": "text", "text": "ella quién diego", "preDelayMs": 1200, "typingMs": 1300, "readDelayMs": 500, "emphasis": "angry" },
+    { "from": "b", "kind": "text", "text": "ay no era para ti perdón", "preDelayMs": 3200, "typingMs": 1500, "readDelayMs": 600, "emphasis": "normal" },
+    { "from": "a", "kind": "text", "text": "no era para mí", "preDelayMs": 600, "typingMs": 900, "readDelayMs": 500, "emphasis": "cold" },
+    { "from": "a", "kind": "text", "text": "entonces para quién", "preDelayMs": 500, "typingMs": 1100, "readDelayMs": 500, "emphasis": "angry" },
+    { "from": "b", "kind": "text", "text": "es complicado dame un seg", "preDelayMs": 2600, "typingMs": 1600, "readDelayMs": 800, "emphasis": "normal" },
+    { "from": "a", "kind": "text", "text": "complicado de qué diego", "preDelayMs": 500, "typingMs": 1200, "readDelayMs": 500, "emphasis": "angry" },
+    { "from": "a", "kind": "text", "text": "llevamos 2 años", "preDelayMs": 300, "typingMs": 900, "readDelayMs": 500, "emphasis": "sad" },
+    { "from": "b", "kind": "text", "text": "sofi no es lo que piensas", "preDelayMs": 4200, "typingMs": 1700, "readDelayMs": 1000, "emphasis": "normal" },
+    { "from": "a", "kind": "text", "text": "...", "preDelayMs": 2200, "typingMs": 200, "readDelayMs": 600, "emphasis": "cold" },
+    { "from": "b", "kind": "text", "text": "era mi hermana", "preDelayMs": 1800, "typingMs": 900, "readDelayMs": 800, "emphasis": "dramatic" },
+    { "from": "b", "kind": "text", "text": "estábamos organizando tu cumple sorpresa", "preDelayMs": 500, "typingMs": 2200, "readDelayMs": 800, "emphasis": "dramatic" },
+    { "from": "b", "kind": "text", "text": "me iba a poner de rodillas hoy", "preDelayMs": 700, "typingMs": 1700, "readDelayMs": 800, "emphasis": "sad" },
+    { "from": "a", "kind": "text", "text": "...", "preDelayMs": 3800, "typingMs": 200, "readDelayMs": 1200, "emphasis": "cold" },
+    { "from": "a", "kind": "text", "text": "diego mi cumple fue ayer", "preDelayMs": 2400, "typingMs": 1500, "readDelayMs": 1500, "emphasis": "dramatic" }
+  ]
+}

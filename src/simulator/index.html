@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=1080,initial-scale=1" />
+    <title>WhatsApp Drama Short</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div id="stage">
+      <div id="phone">
+        <header id="chat-header">
+          <button class="back" aria-label="Back">‹</button>
+          <div class="avatar" id="header-avatar">?</div>
+          <div class="who">
+            <div class="name" id="header-name">…</div>
+            <div class="status" id="header-status">online</div>
+          </div>
+          <div class="actions">
+            <span class="icon" aria-hidden="true">📹</span>
+            <span class="icon" aria-hidden="true">📞</span>
+            <span class="icon" aria-hidden="true">⋮</span>
+          </div>
+        </header>
+
+        <main id="chat" aria-live="polite">
+          <div class="date-pill" id="date-pill">Today</div>
+        </main>
+
+        <footer id="composer">
+          <span class="icon">😊</span>
+          <div class="input-fake">Message</div>
+          <span class="icon">📎</span>
+          <span class="icon">📷</span>
+          <span class="send-mic">🎤</span>
+        </footer>
+      </div>
+    </div>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>
