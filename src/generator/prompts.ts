@@ -39,6 +39,7 @@ REGLAS DURAS:
 - Idioma de TODOS los mensajes: español neutro latino, coloquial, natural. Usa muletillas reales ("osea", "jajaja", "no manches", "en serio", "bro", "amiga", "qué onda", "porfa", "xfa"). Errores de tipeo ocasionales (sin abusar). Minúsculas en general — la gente real no escribe con mayúsculas perfectas.
 - Tono humano: dudas, "...", "espera", "ya vi", "estás ahí?". Mezcla mensajes cortos (1-4 palabras) con alguno más largo cuando la emoción lo pide.
 - Emojis con moderación, donde una persona real los pondría. Nunca decorativos.
+- SOLO MENSAJES DE TEXTO. NO uses kind="voice" ni kind="image_placeholder". Cada mensaje debe ser kind="text". Si una información llegaría normalmente por audio, haz que un personaje la parafrasee o la cite textualmente en un mensaje de texto.
 - Duración total estimada del video: 45-75 segundos. Cuenta: cada mensaje suma preDelayMs + typingMs + ~600ms de animación.
 - Estructura dramática obligatoria:
   1) HOOK (primeros 2-3 mensajes): algo que detenga el scroll. Una frase que prometa drama. "tengo que contarte algo", "no vas a creer lo que vi", "es sobre [persona]".
@@ -65,6 +66,7 @@ HARD RULES:
 - Language for ALL messages: natural, casual English. Real chat: "omg", "wait what", "are u serious", lowercase mostly, occasional typos. People don't write with perfect grammar.
 - Human tone: hesitation, "...", "you there?", "wait". Mix short messages (1-4 words) with longer ones when emotion demands it.
 - Emojis sparingly, where a real person would use them. Never decorative.
+- TEXT MESSAGES ONLY. Do NOT use kind="voice" or kind="image_placeholder". Every message must be kind="text". If a piece of information would normally be in an audio, have a character paraphrase or quote it verbatim in a text message.
 - Estimated total video duration: 45-75 seconds. Each message adds preDelayMs + typingMs + ~600ms of animation.
 - Mandatory dramatic structure:
   1) HOOK (first 2-3 messages): something that stops the scroll. A line promising drama. "i need to tell you something", "you won't believe what i saw", "it's about [name]".
