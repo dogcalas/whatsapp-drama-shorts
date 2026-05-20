@@ -1,95 +1,136 @@
 # WhatsApp Drama Shorts
 
-Generate dramatic WhatsApp-style conversations with Claude and render them as
-vertical short videos (1080×1920, ready for YouTube Shorts / Instagram Reels).
-
-## Pipeline
+Generate dramatic WhatsApp conversations with Claude and render them as
+vertical short videos (1080×1920, with audio) ready for YouTube Shorts and
+Instagram Reels.
 
 ```
- [theme] ──► generator (Claude) ──► script.json ──► simulator (HTML/CSS) ──► recorder (Playwright) ──► video.webm
+[tema] ──► generator (Claude) ──► script.json ──► simulator (HTML/CSS) ──► recorder (Playwright + ffmpeg) ──► video.mp4
 ```
 
-1. **Generator** — `src/generator/` uses Claude (`@anthropic-ai/sdk`) with a
-   carefully tuned drama-writing system prompt (Spanish / English). It returns a
-   strict JSON script with characters, messages, and **realistic per-message
-   timings** (pre-delay, typing duration, read delay, emphasis).
-2. **Simulator** — `src/simulator/` is a vertical 1080×1920 HTML page styled
-   like WhatsApp dark mode. `main.js` consumes the script and animates it:
-   typing indicator (header + bubble), staggered ticks (sent → read), pacing,
-   group sender colors, voice-note bubbles, dramatic emphasis.
-3. **Recorder** — `src/recorder/record.ts` opens the simulator in headless
-   Chromium via Playwright with the viewport sized to the short, plays the
-   script, and saves a `.webm` recording.
+## Requirements
+
+- **Node.js 20+**
+- **ffmpeg** on `PATH` (used to build the audio track and mux video+audio)
+  - macOS: `brew install ffmpeg`
+  - Ubuntu/Debian: `sudo apt-get install ffmpeg`
+  - Windows: download from [ffmpeg.org](https://ffmpeg.org/download.html) and add `bin` to PATH
+- An **Anthropic API key** for script generation
 
 ## Setup
 
 ```bash
-cp .env.example .env   # add your ANTHROPIC_API_KEY
-npm install            # installs deps + chromium via postinstall
+git clone <repo-url>
+cd whatsapp-drama-shorts
+npm install                 # installs deps; postinstall fetches Chromium for Playwright
+cp .env.example .env        # then put your ANTHROPIC_API_KEY in it
 ```
 
-## Commands
+> The Chromium download happens automatically through `playwright install`.
+> If you're behind a firewall set `PLAYWRIGHT_BROWSERS_PATH` to a writable
+> directory.
+
+## One-shot pipeline
+
+Generate a script and render it to MP4 in one command:
 
 ```bash
-# 1) Generate a script only (no video)
-npm run generate -- --theme infidelity --language es
+npm run shoot -- --theme infidelity --language es
+```
 
-# 2) Render an existing script JSON to a video
+Output lands in `output/<timestamp>-<slug>.mp4` along with the script JSON.
+
+## Step-by-step
+
+```bash
+# 1. Generate a script (cheap; you can re-render the same script many times)
+npm run generate -- --theme gossip --language es
+
+# 2. Render an existing script to .mp4 (with audio) or .webm (no audio)
 npm run render -- --in output/<file>.json
+npm run render -- --in output/<file>.json --no-audio   # webm, faster
 
-# 3) Do both in one shot
-npm run shoot -- --theme gossip --language en --speed 1
-
-# 4) Preview a script in your browser (no recording)
+# 3. Preview in the browser without recording (handy while tuning the look)
 npm run serve -- --in examples/sample-es-infidelity.json
-# open http://localhost:5173/
+# then open http://localhost:5173/
 ```
 
 Available themes: `love`, `infidelity`, `work_betrayal`, `gossip`,
 `family_secret`, `friendship_breakup`.
 
-You can steer the generator with `--prompt`:
+Steer the generator with `--prompt`:
 
 ```bash
 npm run shoot -- --theme infidelity --language es \
-  --prompt "Protagonista mujer de 25. La traición la descubre la mejor amiga."
+  --prompt "Protagonista mujer de 25. Descubre la traición vía una historia de Instagram. Final: la mejor amiga estaba involucrada."
 ```
 
-## Convert WebM → MP4 (for upload)
+## Debugging A/V sync
 
-Playwright records to WebM. Convert with ffmpeg:
+If audio drifts relative to video, set `DRAMA_DEBUG=1` when rendering. The
+recorder prints:
 
-```bash
-ffmpeg -i output/short.webm -c:v libx264 -pix_fmt yuv420p \
-  -movflags +faststart output/short.mp4
+```
+[debug] recordStartT=... playStartT=... anchor=... trim=...ms events=...
 ```
 
-## Script JSON shape (summary)
+- `trim` is how many ms of the recorded WebM front are skipped to align
+  with the page-side audio anchor.
+- `events` is the number of audio events received from the page; expect
+  ~2 per outgoing message (type-start, type-end) + 1 receive per incoming
+  + 1 send per outgoing.
 
-```jsonc
-{
-  "meta": { "title": "...", "theme": "infidelity", "language": "es",
-            "hook": "...", "twist": "...", "estimatedDurationSeconds": 55 },
-  "chatName": "Diego ❤️",
-  "isGroup": false,
-  "participants": [
-    { "id": "a", "name": "Sofi",  "isOwner": true,  "avatarInitial": "S" },
-    { "id": "b", "name": "Diego", "isOwner": false, "color": "#7f5af0" }
-  ],
-  "messages": [
-    { "from": "b", "kind": "text", "text": "amor ya casi salgo",
-      "preDelayMs": 600, "typingMs": 1400, "readDelayMs": 600,
-      "emphasis": "normal" }
-  ]
-}
+## Layout of the repo
+
+```
+src/
+├── types/script.ts          # Zod schema for the conversation JSON
+├── generator/
+│   ├── index.ts             # Anthropic client (Sonnet 4.6 + prompt cache)
+│   └── prompts.ts           # Drama system prompts (es/en)
+├── simulator/
+│   ├── index.html           # 1080x1920 WhatsApp-style UI
+│   ├── styles.css
+│   └── main.js              # Player; emits audio events via window.__audioNotify
+├── recorder/
+│   └── record.ts            # Playwright-driven recording + ffmpeg mux
+├── audio/
+│   └── synth.ts             # Build audio track from event timestamps, mux mp4
+└── cli.ts                   # generate | render | shoot | serve
+assets/sfx/
+├── typing.mp3               # iPhone keyboard loop (skipped first 3 s, +40% tempo)
+├── receive.mp3              # incoming message ding
+└── send.mp3                 # outgoing pop
+examples/
+└── sample-es-infidelity.json # hand-tuned script for offline testing
 ```
 
-See `examples/sample-es-infidelity.json` for a hand-tuned example you can
-render without spending API calls.
+## How sync works (and where it can break)
+
+1. The player runs entirely in headless Chromium under Playwright. It
+   captures `window.__playStartPerf = performance.now()` right after the
+   avatars finish preloading, and also sends Node a wall-clock anchor at
+   that exact instant.
+2. Each visual change in the UI (caret appears in composer, last char
+   typed, bubble appended to chat) calls `fire(kind)` which forwards
+   `(performance.now() - __playStartPerf)` to Node.
+3. Node ignores its own clock for these timestamps — it uses the page's
+   own values, so CDP transport latency doesn't accumulate in the
+   timeline.
+4. After playback, ffmpeg synthesizes a single mono WAV from those event
+   timestamps (`adelay` per event + `amix`), and muxes it with the WebM
+   trimmed to start at the page-anchor wall-clock instant. The MP4 is
+   re-encoded to constant 30 fps so players that don't handle Playwright's
+   VFR WebM well don't drift.
+
+If you still see drift, please run with `DRAMA_DEBUG=1` and share the
+`[debug]` line along with the file — that's enough to narrow it down.
 
 ## Roadmap
 
-- Auto-upload to YouTube Shorts and Instagram Reels (next iteration).
-- Optional background music + notification SFX.
-- Voice-note audio synthesis (TTS).
-- Thumbnail / caption generator from `meta.hook`.
+- Background music + per-theme music library
+- Realistic auto-generated avatars (currently pravatar.cc by name seed;
+  falls back to coloured initials when offline)
+- Auto-upload to YouTube Shorts and Instagram Reels (OAuth + API)
+- Caption + hashtags from `meta.hook` and `meta.twist`
+- Batch generation (10 dramas → schedule uploads)

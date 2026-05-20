@@ -137,8 +137,10 @@ export async function muxVideoAudio(args: {
   videoTrimMs?: number;
 }): Promise<void> {
   const trim = Math.max(0, args.videoTrimMs ?? 0);
-  // -ss AFTER -i is frame-accurate (decodes from start, then seeks). WebM
-  // VP8 keyframes can be sparse, so -ss before -i would snap and drift.
+  // -ss AFTER -i is frame-accurate (decodes from start, then seeks).
+  // -r 30 + -vsync cfr forces a constant frame rate output; Playwright's
+  // WebM is VFR and some players progressively drift relative to a CFR
+  // audio track when the source has uneven frame spacing.
   const trimArgs = trim > 0 ? ["-ss", (trim / 1000).toFixed(3)] : [];
   await exec("ffmpeg", [
     "-y",
@@ -155,6 +157,10 @@ export async function muxVideoAudio(args: {
     "libx264",
     "-pix_fmt",
     "yuv420p",
+    "-r",
+    "30",
+    "-vsync",
+    "cfr",
     "-movflags",
     "+faststart",
     "-c:a",

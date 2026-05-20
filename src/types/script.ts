@@ -51,7 +51,7 @@ export const ScriptSchema = z.object({
     language: LanguageSchema,
     hook: z.string().min(1),
     twist: z.string().min(1),
-    estimatedDurationSeconds: z.number().int().min(15).max(180),
+    estimatedDurationSeconds: z.number().int().min(30).max(150),
     startTime: z
       .string()
       .regex(/^([01]?\d|2[0-3]):[0-5]\d$/)
@@ -60,7 +60,7 @@ export const ScriptSchema = z.object({
   chatName: z.string().min(1),
   isGroup: z.boolean().default(false),
   participants: z.array(ParticipantSchema).min(2).max(4),
-  messages: z.array(MessageSchema).min(6).max(60),
+  messages: z.array(MessageSchema).min(18).max(40),
 });
 export type Script = z.infer<typeof ScriptSchema>;
 

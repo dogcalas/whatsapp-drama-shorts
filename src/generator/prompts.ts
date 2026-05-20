@@ -40,20 +40,23 @@ REGLAS DURAS:
 - Tono humano: dudas, "...", "espera", "ya vi", "estás ahí?". Mezcla mensajes cortos (1-4 palabras) con alguno más largo cuando la emoción lo pide.
 - Emojis con moderación, donde una persona real los pondría. Nunca decorativos.
 - SOLO MENSAJES DE TEXTO. NO uses kind="voice" ni kind="image_placeholder". Cada mensaje debe ser kind="text". Si una información llegaría normalmente por audio, haz que un personaje la parafrasee o la cite textualmente en un mensaje de texto.
-- Duración total estimada del video: 45-75 segundos. Cuenta: cada mensaje suma preDelayMs + typingMs + ~600ms de animación.
-- Estructura dramática obligatoria:
-  1) HOOK (primeros 2-3 mensajes): algo que detenga el scroll. Una frase que prometa drama. "tengo que contarte algo", "no vas a creer lo que vi", "es sobre [persona]".
-  2) DESARROLLO: la historia se cuenta entre dos personas, con tensión creciente. Preguntas, negaciones, evidencia.
-  3) TWIST: un giro real en el último tercio. NO el twist obvio — uno que recontextualice todo lo anterior.
-  4) CIERRE: corto, fuerte. Puede ser silencio (un "..." sin respuesta), una bomba final, o un cliffhanger.
-- 2 o 3 participantes máximo. Si son 3, que sea claramente un grupo (chatName tipo "Las brujas 🔮" o "Trabajo 💀").
+- Duración total estimada del video: 75-110 segundos. Apunta a 90s. Cuenta: cada mensaje suma preDelayMs + typingMs + ~600ms de animación.
+- Mínimo 22 mensajes, ideal 26-32. Para llegar a esa densidad: mensajes cortos encadenados (la gente real manda 3-4 mensajes seguidos en lugar de un párrafo), reacciones intermedias ("qué", "espera", "no"), confirmaciones y preguntas.
+- Estructura dramática obligatoria (4 actos, NO 3):
+  1) HOOK (mensajes 1-3): algo que detenga el scroll. Una frase que prometa drama. "tengo que contarte algo", "no vas a creer lo que vi", "es sobre [persona]". Tiene que ser específico, no genérico.
+  2) DESARROLLO (mensajes 4-10): la historia se revela poco a poco. Detalles concretos (hora, lugar, descripción física), evidencia. La víctima hace preguntas y empieza a dudar.
+  3) PRIMER TWIST (mensajes 11-16): un primer giro que cambia quién es el villano o cuál es el verdadero secreto. NO el twist obvio. La víctima procesa, hay confrontación.
+  4) CONTRA-TWIST O ESCALADA FINAL (mensajes 17-24): un segundo golpe que recontextualiza otra vez. Puede ser: la víctima ya sabía, había una tercera persona involucrada, la "víctima" es en realidad el culpable, las consecuencias acaban de empezar.
+  5) CIERRE (últimos 2-3 mensajes): corto, devastador. Puede ser silencio ("..."), una bomba final ("nos vemos en el juzgado"), o un cliffhanger que deje al espectador queriendo más.
+- VARIEDAD DE FINALES: NO siempre el final cómico tipo "jaja era una sorpresa". Alterna: tragedia real (alguien queda destrozado), venganza fría (la víctima se vuelve atacante), confesión inesperada de un secreto peor, consecuencia legal/familiar grave, o cliffhanger abierto.
+- 2 o 3 participantes. Cuando haya 3, alguno de ellos puede entrar a mitad de la conversación (drama de "te metí al grupo" o reenvío). Si son 3, que sea claramente un grupo (chatName tipo "Las brujas 🔮" o "Trabajo 💀").
 - isOwner=true para el personaje cuya vista mostramos (sus mensajes van a la derecha en verde). Elige al protagonista que más conviene al drama: normalmente quien recibe la información o vive la revelación.
 - TIMINGS REALISTAS pero TENSOS — NO uses pausas largas:
-  - preDelayMs: pausa antes de empezar a escribir. Normal: 600-1500ms. Después de algo fuerte: 1500-2500ms. NUNCA pongas más de 3500ms, y eso solo UNA vez en todo el guion (el momento del twist o del silencio que más duele).
+  - preDelayMs: pausa antes de empezar a escribir. Normal: 500-1200ms. Después de algo fuerte: 1500-2500ms. NUNCA pongas más de 3500ms, y eso solo DOS veces como máximo (los dos twists).
   - typingMs: tiempo del indicador "escribiendo...". Aproximadamente 40ms por caracter del mensaje, mínimo 400ms, máximo 3500ms. Mensajes cortos casi sin typing visible (200-400ms).
-  - readDelayMs: cuánto tarda el otro en ver el mensaje. 300-1000ms normalmente. Máximo 1500ms.
-  - El guion entero debe sentirse rápido y tenso. Si sumas todos los preDelay y typing, el total no debe pasar de 55 segundos.
-  - emphasis: usa "dramatic" en el twist, "angry" en confrontación, "sad" en quiebre emocional, "cold" cuando alguien responde seco a propósito.
+  - readDelayMs: 300-1000ms normalmente. Máximo 1500ms.
+  - Total preDelay+typing entre 70-100 segundos. Apunta a 80s.
+  - emphasis: "dramatic" en los twists, "angry" en confrontación, "sad" en quiebre emocional, "cold" cuando alguien responde seco a propósito.
 
 TEMA ESPECÍFICO PARA ESTE GUION: __THEME_BRIEF__
 
@@ -68,20 +71,23 @@ HARD RULES:
 - Human tone: hesitation, "...", "you there?", "wait". Mix short messages (1-4 words) with longer ones when emotion demands it.
 - Emojis sparingly, where a real person would use them. Never decorative.
 - TEXT MESSAGES ONLY. Do NOT use kind="voice" or kind="image_placeholder". Every message must be kind="text". If a piece of information would normally be in an audio, have a character paraphrase or quote it verbatim in a text message.
-- Estimated total video duration: 45-75 seconds. Each message adds preDelayMs + typingMs + ~600ms of animation.
-- Mandatory dramatic structure:
-  1) HOOK (first 2-3 messages): something that stops the scroll. A line promising drama. "i need to tell you something", "you won't believe what i saw", "it's about [name]".
-  2) BUILD: story unfolds between two people, tension rising. Questions, denials, evidence.
-  3) TWIST: a real turn in the final third. NOT the obvious twist — one that recontextualizes everything.
-  4) CLOSE: short, hard. Can be silence (a "..." with no reply), a final bomb, or a cliffhanger.
-- Maximum 2 or 3 participants. If 3, clearly a group (chatName like "The coven 🔮" or "Work 💀").
+- Estimated total video duration: 75-110 seconds. Aim for 90s.
+- Minimum 22 messages, ideally 26-32. Achieve that density via short messages chained back-to-back (real people send 3-4 short messages in a row instead of one paragraph) and reactions ("what", "wait", "no").
+- Mandatory four-act structure (NOT three):
+  1) HOOK (msgs 1-3): something that stops the scroll. Specific, not generic. "i need to tell you something", "you won't believe what i saw at...".
+  2) BUILD (msgs 4-10): the story reveals slowly. Concrete details (time, place, physical description), evidence. The victim asks questions and starts doubting.
+  3) FIRST TWIST (msgs 11-16): a turn that flips who's the villain or what the real secret is. Not the obvious twist. The victim processes; there's confrontation.
+  4) COUNTER-TWIST OR FINAL ESCALATION (msgs 17-24): a second blow that recontextualizes again. The victim knew all along, there was a third party, the "victim" is actually guilty, the legal/family consequences just started.
+  5) CLOSE (last 2-3): short, devastating. Silence ("..."), a final bomb, or open cliffhanger.
+- ENDING VARIETY: do NOT always end with the comic "haha it was a surprise" beat. Rotate among: real tragedy (someone destroyed), cold revenge (victim becomes attacker), unexpected confession of a worse secret, grave legal/family consequence, open cliffhanger.
+- 2 or 3 participants. With 3, someone can join mid-conversation (forwarded chat, added to group). If 3, clearly a group (chatName like "The coven 🔮" or "Work 💀").
 - isOwner=true for the character whose view we show (their messages go right in green). Pick the protagonist who fits the drama: usually the one receiving info or living the reveal.
 - REALISTIC but TENSE timings — NO long pauses:
-  - preDelayMs: pause before typing starts. Normal: 600-1500ms. After something heavy: 1500-2500ms. NEVER more than 3500ms, and only ONCE in the whole script (the twist or the silence that hurts most).
+  - preDelayMs: pause before typing starts. Normal: 500-1200ms. After something heavy: 1500-2500ms. NEVER more than 3500ms; use that at most TWICE (the two twists).
   - typingMs: "typing..." indicator time. About 40ms per char, min 400ms, max 3500ms. Short messages almost no visible typing (200-400ms).
-  - readDelayMs: how long until the other reads. 300-1000ms normally. Max 1500ms.
-  - The full script should feel fast and tense. Total preDelay+typing across all messages must be under 55 seconds.
-  - emphasis: "dramatic" on twist, "angry" on confrontation, "sad" on emotional break, "cold" when someone replies dryly on purpose.
+  - readDelayMs: 300-1000ms normally. Max 1500ms.
+  - Total preDelay+typing should be 70-100 seconds. Aim for 80s.
+  - emphasis: "dramatic" on twists, "angry" on confrontation, "sad" on emotional break, "cold" when someone replies dryly on purpose.
 
 SPECIFIC THEME FOR THIS SCRIPT: __THEME_BRIEF__
 
