@@ -65,27 +65,33 @@ export async function renderAudioTrack(args: {
   const filters: string[] = [];
   const labels: string[] = [];
 
+  // The user's typing.mp3 has sparse keystrokes in the first ~3 seconds, then
+  // settles into a continuous flurry. Skip the slow intro and speed up 40%
+  // so the cadence matches the visual typing rhythm.
+  const TYPING_SS = 3.0;
+  const TYPING_TEMPO = 1.4;
+
   events.forEach((evt, i) => {
-    if (evt.kind === "type") {
-      inputs.push("-i", TYPING_SRC);
-    } else {
-      inputs.push("-i", RECEIVE_SRC);
-    }
     const delayMs = Math.max(0, Math.round(evt.tSec * 1000));
     if (evt.kind === "type") {
-      // Trim the typing sample to the typing window, fade out the last 80ms
-      // so it doesn't cut off harshly when the user "stops typing".
-      const dur = (evt.durationMs / 1000).toFixed(3);
-      const fadeStart = Math.max(0, evt.durationMs / 1000 - 0.08).toFixed(3);
+      inputs.push("-ss", String(TYPING_SS), "-i", TYPING_SRC);
+      // After atempo=1.4 each second of source becomes 1/1.4 ≈ 0.714s of
+      // output. We want the OUTPUT to last `durationMs`, so we trim the
+      // source to durationMs*tempo first, then apply atempo.
+      const srcDur = (evt.durationMs / 1000) * TYPING_TEMPO;
+      const outDur = evt.durationMs / 1000;
+      const fadeStart = Math.max(0, outDur - 0.08).toFixed(3);
       filters.push(
-        `[${i}:a]atrim=duration=${dur},asetpts=PTS-STARTPTS,` +
+        `[${i}:a]atrim=duration=${srcDur.toFixed(3)},asetpts=PTS-STARTPTS,` +
+          `atempo=${TYPING_TEMPO},` +
           `afade=t=in:st=0:d=0.04,afade=t=out:st=${fadeStart}:d=0.08,` +
-          `volume=0.85,` +
+          `volume=0.9,` +
           `adelay=${delayMs}|${delayMs},apad[a${i}]`,
       );
     } else {
+      inputs.push("-i", RECEIVE_SRC);
       filters.push(
-        `[${i}:a]volume=0.9,adelay=${delayMs}|${delayMs},apad[a${i}]`,
+        `[${i}:a]volume=0.95,adelay=${delayMs}|${delayMs},apad[a${i}]`,
       );
     }
     labels.push(`[a${i}]`);

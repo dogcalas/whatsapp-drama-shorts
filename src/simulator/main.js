@@ -236,6 +236,18 @@ function resetComposer() {
   c.sendBtn.classList.remove("has-text", "pressed");
 }
 
+// Fire-and-forget audio notification. The recorder hooks `__audioNotify`
+// via Playwright's exposeFunction and timestamps each call when it arrives,
+// so audio aligns with the *actual* moment the UI updated (resilient to any
+// JS/DOM overhead that would otherwise drift our pre-computed timeline).
+function fire(kind) {
+  try {
+    if (typeof window.__audioNotify === "function") window.__audioNotify(kind);
+  } catch {
+    // no-op
+  }
+}
+
 async function typeIntoComposer(text, totalMs) {
   const c = composer();
   c.box.classList.add("typing");
@@ -243,21 +255,19 @@ async function typeIntoComposer(text, totalMs) {
   c.typed.textContent = "";
 
   if (text.length === 0) return;
+  fire("type-start");
   const perChar = Math.max(28, Math.min(140, totalMs / text.length));
   for (let i = 0; i < text.length; i++) {
     c.typed.textContent += text[i];
-    // Small jitter so it doesn't feel robotic.
     const jitter = perChar * (0.7 + Math.random() * 0.6);
     await sleep(jitter);
-    // Emit a keystroke event (audio synth can hook here later).
-    window.dispatchEvent(new CustomEvent("kbd-tap"));
   }
+  fire("type-end");
 }
 
 async function sendFromComposer(script, msg, displayedTime, isContinued) {
   const c = composer();
   c.sendBtn.classList.add("pressed");
-  window.dispatchEvent(new CustomEvent("msg-send"));
   await sleep(120);
   c.sendBtn.classList.remove("pressed");
 
@@ -318,9 +328,9 @@ async function playScript(script, opts = {}) {
       typingRow.remove();
       headerStatus.textContent = originalStatus;
 
-      window.dispatchEvent(new CustomEvent("msg-receive"));
       const built = buildBubble(script, msg, false, display, isContinued, "receiving");
       chat.appendChild(built.row);
+      fire("receive");
       scrollToBottom();
     } else {
       // Owner: type in composer, then send.

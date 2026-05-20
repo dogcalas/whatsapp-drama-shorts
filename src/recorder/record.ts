@@ -3,8 +3,11 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import path from "node:path";
 import fs from "node:fs/promises";
 import type { Script } from "../types/script.ts";
-import { buildTimeline } from "../audio/timeline.ts";
-import { muxVideoAudio, renderAudioTrack } from "../audio/synth.ts";
+import {
+  muxVideoAudio,
+  renderAudioTrack,
+  type TimelineEvent,
+} from "../audio/synth.ts";
 
 export interface RecordOptions {
   script: Script;
@@ -19,6 +22,33 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const SIMULATOR_DIR = path.resolve(__dirname, "..", "simulator");
 const SIMULATOR_INDEX = path.join(SIMULATOR_DIR, "index.html");
+
+interface RawEvent {
+  tMs: number;
+  kind: "type-start" | "type-end" | "receive";
+}
+
+function eventsToTimeline(raw: RawEvent[]): TimelineEvent[] {
+  const out: TimelineEvent[] = [];
+  let typingStart: number | null = null;
+  for (const e of raw) {
+    if (e.kind === "type-start") {
+      typingStart = e.tMs;
+    } else if (e.kind === "type-end") {
+      if (typingStart != null) {
+        out.push({
+          tSec: typingStart / 1000,
+          kind: "type",
+          durationMs: Math.max(80, e.tMs - typingStart),
+        });
+        typingStart = null;
+      }
+    } else if (e.kind === "receive") {
+      out.push({ tSec: e.tMs / 1000, kind: "receive" });
+    }
+  }
+  return out;
+}
 
 export async function recordScript(opts: RecordOptions): Promise<string> {
   const { script } = opts;
@@ -42,19 +72,30 @@ export async function recordScript(opts: RecordOptions): Promise<string> {
 
     const recordStartT = Date.now();
     const page = await context.newPage();
+
+    // Will be populated as the page fires audio notifications. Timestamps
+    // are captured at receipt in Node, relative to playStartT (set below).
+    const rawEvents: RawEvent[] = [];
+    let playStartT = 0;
+
+    await page.exposeFunction("__audioNotify", (kind: RawEvent["kind"]) => {
+      if (playStartT === 0) return;
+      rawEvents.push({ tMs: Date.now() - playStartT, kind });
+    });
+
     const url = pathToFileURL(SIMULATOR_INDEX).toString();
     await page.goto(url);
     await page.waitForFunction(() => (window as any).__playReady === true);
-    // Tiny settle so fonts and first frame land before we hit "play".
     await page.waitForTimeout(200);
 
-    const playStartT = Date.now();
+    playStartT = Date.now();
     await page.evaluate(
       async ([script, options]) => {
         await (window as any).__playScript(script, options);
       },
       [script, { speed, startDelayMs, endHoldMs }] as const,
     );
+    const playEndT = Date.now();
 
     const video = page.video();
     await page.close();
@@ -65,10 +106,6 @@ export async function recordScript(opts: RecordOptions): Promise<string> {
 
     const wantsMp4 = opts.outputPath.endsWith(".mp4");
     const withAudio = opts.withAudio ?? wantsMp4;
-
-    // Offset between recording start and the moment the player began playing.
-    // We trim the video's front so t=0 in the final file matches the first
-    // moment that the chat UI is animated by the player.
     const videoTrimMs = Math.max(0, playStartT - recordStartT);
 
     if (!withAudio) {
@@ -79,11 +116,8 @@ export async function recordScript(opts: RecordOptions): Promise<string> {
       return finalPath;
     }
 
-    const { events, durationSec } = buildTimeline(script, {
-      startDelayMs,
-      endHoldMs,
-      speed,
-    });
+    const events = eventsToTimeline(rawEvents);
+    const durationSec = (playEndT - playStartT) / 1000 + 0.2;
     const audioPath = rawPath.replace(/\.webm$/, ".wav");
     await renderAudioTrack({ events, durationSec, outputPath: audioPath });
 
