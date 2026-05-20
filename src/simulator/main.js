@@ -7,6 +7,77 @@ const DEFAULT_AVATAR_BG = ["#6a7d8a", "#7f5af0", "#e67e7e", "#3aa386", "#f5c451"
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+/* ---------------- In-browser audio via Web Audio API ---------------- */
+// Used by the "screen capture" recorder where ffmpeg picks up the sound
+// directly from PulseAudio. Falls back to no-op when window.__audioNotify
+// is wired up instead (old Node-side audio synth path).
+
+const SFX = { ready: false, ctx: null, buffers: {}, activeTyping: null };
+
+async function loadSfx() {
+  if (SFX.ready) return SFX;
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return SFX;
+  SFX.ctx = new AC();
+  try { await SFX.ctx.resume(); } catch {}
+  const names = ["typing", "receive", "send"];
+  for (const name of names) {
+    try {
+      const res = await fetch(`/sfx/${name}.mp3`);
+      if (!res.ok) continue;
+      const buf = await res.arrayBuffer();
+      SFX.buffers[name] = await SFX.ctx.decodeAudioData(buf);
+    } catch {
+      // missing file → skip; that SFX simply won't play
+    }
+  }
+  SFX.ready = true;
+  return SFX;
+}
+
+function sfxPlayOnce(name, volume = 0.9) {
+  if (!SFX.ready || !SFX.buffers[name]) return;
+  const src = SFX.ctx.createBufferSource();
+  src.buffer = SFX.buffers[name];
+  const gain = SFX.ctx.createGain();
+  gain.gain.value = volume;
+  src.connect(gain).connect(SFX.ctx.destination);
+  src.start();
+}
+
+function sfxStartTyping() {
+  if (!SFX.ready || !SFX.buffers.typing) return;
+  sfxStopTyping(true);
+  const src = SFX.ctx.createBufferSource();
+  src.buffer = SFX.buffers.typing;
+  src.playbackRate.value = 1.4;
+  src.loop = true;
+  src.loopStart = 3.0;
+  src.loopEnd = Math.min(src.buffer.duration, 20.0);
+  const gain = SFX.ctx.createGain();
+  gain.gain.setValueAtTime(0, SFX.ctx.currentTime);
+  gain.gain.linearRampToValueAtTime(0.85, SFX.ctx.currentTime + 0.04);
+  src.connect(gain).connect(SFX.ctx.destination);
+  // Start playback at offset 3s where the iPhone sample becomes a continuous
+  // typing flurry (the first 3 seconds are sparse keystrokes we want to skip).
+  src.start(0, 3.0);
+  SFX.activeTyping = { src, gain };
+}
+
+function sfxStopTyping(immediate = false) {
+  if (!SFX.activeTyping) return;
+  const { src, gain } = SFX.activeTyping;
+  const now = SFX.ctx.currentTime;
+  const fade = immediate ? 0.01 : 0.08;
+  try {
+    gain.gain.cancelScheduledValues(now);
+    gain.gain.setValueAtTime(gain.gain.value, now);
+    gain.gain.linearRampToValueAtTime(0, now + fade);
+    src.stop(now + fade + 0.01);
+  } catch {}
+  SFX.activeTyping = null;
+}
+
 function el(tag, className) {
   const node = document.createElement(tag);
   if (className) node.className = className;
@@ -236,11 +307,20 @@ function resetComposer() {
   c.sendBtn.classList.remove("has-text", "pressed");
 }
 
-// Fire-and-forget audio notification. The recorder hooks `__audioNotify`
-// via Playwright's exposeFunction. We pass the page-side performance.now()
-// timestamp so Node ignores the CDP transport latency entirely — what
-// matters is when the *page* fired the event, not when Node heard about it.
+// Fire an audio event. Two delivery modes:
+//   (a) Screen-capture recorder: play the sound IN the browser via Web
+//       Audio (ffmpeg picks it up from PulseAudio). Perfect sync.
+//   (b) Legacy recorder: report (kind, page-time) to Node, which builds
+//       the audio track separately and muxes it.
 function fire(kind) {
+  // (a) In-browser playback
+  if (SFX.ready) {
+    if (kind === "type-start") sfxStartTyping();
+    else if (kind === "type-end") sfxStopTyping();
+    else if (kind === "receive") sfxPlayOnce("receive", 0.95);
+    else if (kind === "send") sfxPlayOnce("send", 0.85);
+  }
+  // (b) Notify Node (no-op when not in legacy mode)
   try {
     if (typeof window.__audioNotify === "function") {
       const t = performance.now() - (window.__playStartPerf || 0);
@@ -301,7 +381,7 @@ async function playScript(script, opts = {}) {
 
   setStatusBar(script);
   setHeader(script);
-  await preloadAvatars(script);
+  await Promise.all([preloadAvatars(script), loadSfx()]);
 
   const headerStatus = document.getElementById("header-status");
   const originalStatus = headerStatus.textContent;

@@ -14,6 +14,7 @@ import {
   type Theme,
 } from "./types/script.ts";
 import { recordScript } from "./recorder/record.ts";
+import { recordScriptScreen } from "./recorder/record-screen.ts";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -97,6 +98,10 @@ program
   .option("-o, --out <file>", "output video path (.mp4 or .webm)")
   .option("--speed <n>", "playback speed multiplier", parseFloat, 1)
   .option("--no-audio", "skip audio synthesis (.webm only, faster)")
+  .option(
+    "--screen",
+    "Linux only: capture screen + audio with ffmpeg/Xvfb/PulseAudio (perfect A/V sync)",
+  )
   .action(async (opts) => {
     const script = await loadScript(opts.in);
     const ext = opts.audio === false ? "webm" : "mp4";
@@ -107,6 +112,15 @@ program
         `${timestamp()}-${slugify(script.meta.title)}.${ext}`,
       );
     process.stdout.write(`Rendering "${script.meta.title}"…\n`);
+    if (opts.screen) {
+      const written = await recordScriptScreen({
+        script,
+        outputPath: outFile,
+        speed: opts.speed,
+      });
+      process.stdout.write(`✓ Video saved: ${path.relative(ROOT, written)}\n`);
+      return;
+    }
     const written = await recordScript({
       script,
       outputPath: outFile,
@@ -124,6 +138,10 @@ program
   .option("-p, --prompt <text>", "extra direction for the generator")
   .option("--speed <n>", "playback speed multiplier", parseFloat, 1)
   .option("--model <id>", "override the Claude model")
+  .option(
+    "--screen",
+    "Linux only: capture screen + audio with ffmpeg/Xvfb/PulseAudio",
+  )
   .action(async (opts) => {
     const theme = ThemeSchema.parse(opts.theme) as Theme;
     const language = LanguageSchema.parse(opts.language) as Language;
@@ -144,12 +162,18 @@ program
     process.stdout.write(`  Hook:  ${script.meta.hook}\n`);
     process.stdout.write(`  Twist: ${script.meta.twist}\n`);
     process.stdout.write(`Rendering…\n`);
-    const written = await recordScript({
-      script,
-      outputPath: `${base}.mp4`,
-      speed: opts.speed,
-      withAudio: true,
-    });
+    const written = opts.screen
+      ? await recordScriptScreen({
+          script,
+          outputPath: `${base}.mp4`,
+          speed: opts.speed,
+        })
+      : await recordScript({
+          script,
+          outputPath: `${base}.mp4`,
+          speed: opts.speed,
+          withAudio: true,
+        });
     process.stdout.write(`✓ Video: ${path.relative(ROOT, written)}\n`);
   });
 

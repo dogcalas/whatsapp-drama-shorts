@@ -65,10 +65,38 @@ npm run shoot -- --theme infidelity --language es \
   --prompt "Protagonista mujer de 25. Descubre la traición vía una historia de Instagram. Final: la mejor amiga estaba involucrada."
 ```
 
-## Debugging A/V sync
+## Perfect-sync mode (Linux only): `--screen`
 
-If audio drifts relative to video, set `DRAMA_DEBUG=1` when rendering. The
-recorder prints:
+The default recorder uses Playwright's WebM recordVideo and synthesises
+the audio track in Node, then muxes them together. That works but can
+drift on some systems because the two streams come from different clocks.
+
+The screen-capture recorder ditches that completely: it runs headed
+Chromium under Xvfb, plays the audio **inside the browser** via Web
+Audio API, and uses ffmpeg to capture both screen (`x11grab`) and audio
+(`pulse`) from the SAME wall-clock at the same time. A/V sync is exact
+by construction — there is no second timeline to align.
+
+Extra requirements:
+
+```bash
+sudo apt-get install -y xvfb pulseaudio pulseaudio-utils ffmpeg
+```
+
+Usage — just add `--screen`:
+
+```bash
+npm run shoot -- --theme work_betrayal --language es --screen
+npm run render -- --in output/<file>.json --screen
+```
+
+The recorder takes care of starting Xvfb and PulseAudio for you on the
+first run.
+
+## Debugging A/V sync (default recorder)
+
+If you stick with the default recorder and audio drifts, set
+`DRAMA_DEBUG=1`. It prints:
 
 ```
 [debug] recordStartT=... playStartT=... anchor=... trim=...ms events=...
