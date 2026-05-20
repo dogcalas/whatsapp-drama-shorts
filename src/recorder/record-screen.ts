@@ -176,14 +176,21 @@ export async function recordScriptScreen(opts: ScreenRecordOptions): Promise<str
     await page.waitForTimeout(400);
 
     // ----- Start ffmpeg recording (both x11 and pulse inputs) -----
-    // Key sync flags:
-    //   -use_wallclock_as_timestamps 1 forces ffmpeg to stamp each frame
-    //   with the system clock at capture instant, so the two inputs share
-    //   the same time reference regardless of their internal buffering.
-    //   Without this, PulseAudio's monitor source preroll (~1-2 s) ends up
-    //   marking early audio packets at t=0 → audio appears "ahead" of
-    //   video by that preroll amount.
-    //   -draw_mouse 0 hides the X cursor in the capture.
+    //
+    // x11grab's first frame takes ~1.5–2 s to deliver under Xvfb (encoder
+    // warmup + first keyframe), while PulseAudio's monitor starts giving
+    // packets almost immediately. With `-use_wallclock_as_timestamps`
+    // those packets get stamped *earlier* than the first video frame, so
+    // the recorded audio drifts ahead of the picture by exactly that
+    // warmup interval.
+    //
+    // Fix: delay the audio INPUT with -itsoffset by the empirical warmup
+    // amount. Tunable via DRAMA_AV_OFFSET_MS (default 2000 ms — what we
+    // measured under Xvfb + libx264 veryfast at 30 fps). On other hosts
+    // the value may differ; set the env var to override.
+    const audioOffsetMs = parseInt(process.env.DRAMA_AV_OFFSET_MS ?? "2000", 10);
+    const audioOffsetSec = (audioOffsetMs / 1000).toFixed(3);
+
     const ffmpegArgs = [
       "-hide_banner",
       "-loglevel",
@@ -191,8 +198,6 @@ export async function recordScriptScreen(opts: ScreenRecordOptions): Promise<str
       "-y",
       "-thread_queue_size",
       "1024",
-      "-use_wallclock_as_timestamps",
-      "1",
       "-f",
       "x11grab",
       "-draw_mouse",
@@ -205,8 +210,7 @@ export async function recordScriptScreen(opts: ScreenRecordOptions): Promise<str
       `${display}.0+0,80`,
       "-thread_queue_size",
       "1024",
-      "-use_wallclock_as_timestamps",
-      "1",
+      ...(audioOffsetMs > 0 ? ["-itsoffset", audioOffsetSec] : []),
       "-f",
       "pulse",
       "-i",
@@ -227,10 +231,13 @@ export async function recordScriptScreen(opts: ScreenRecordOptions): Promise<str
     ];
     ffmpeg = spawn("ffmpeg", ffmpegArgs, { env: pulseEnv });
 
-    // PulseAudio's monitor source typically needs ~1.5 s to deliver its
-    // first usable packet; if we evaluate playScript before that, the
-    // initial audio events fall on silence in the recording.
-    await new Promise((r) => setTimeout(r, 1800));
+    if (process.env.DRAMA_DEBUG) {
+      process.stderr.write(`[debug] ffmpeg started, audio offset: ${audioOffsetMs}ms\n`);
+    }
+
+    // Wait long enough for BOTH inputs to be alive before driving the
+    // player. We're padding for the slower of the two (x11grab warmup).
+    await new Promise((r) => setTimeout(r, 2200));
 
     // ----- Drive the player -----
     const startDelayMs = opts.startDelayMs ?? 600;
