@@ -6,27 +6,25 @@ interface BuildOptions {
   endHoldMs: number;
   /** Same speed factor used by the player. */
   speed: number;
-  /** Keystroke cadence (ms between ticks). */
-  keystrokeIntervalMs: number;
-  /** Min delay between consecutive keystrokes (defensive). */
-  minIntervalMs: number;
 }
 
 const DEFAULTS: BuildOptions = {
   startDelayMs: 600,
   endHoldMs: 1500,
   speed: 1,
-  keystrokeIntervalMs: 180,
-  minIntervalMs: 90,
 };
 
 /**
  * Returns the sequence of audio events to play during a render of `script`.
- * Mirrors the player's scheduling exactly so events line up with the picture.
+ * Mirrors the player's scheduling so events line up with the picture.
  *
- *  - owner messages → typing keystrokes during the typingMs window + a send
- *    whoosh at the moment the bubble appears
- *  - incoming messages → a receive notification at the moment the bubble lands
+ *  - owner messages → one "type" event spanning the typing window. The
+ *    user-provided iPhone-keyboard sound already contains many discrete
+ *    keystrokes, so we just play a slice of it as long as the typing.
+ *  - incoming messages → a "receive" notification at the moment the bubble
+ *    lands.
+ *
+ *  Send events are intentionally omitted (per spec).
  */
 export function buildTimeline(
   script: Script,
@@ -42,31 +40,22 @@ export function buildTimeline(
     const sender = script.participants.find((p) => p.id === msg.from);
     const isOwner = sender?.isOwner ?? false;
 
-    // The player computes per-char delay as max(28, min(140, typingMs / len)).
-    // We approximate keystroke ticks with a fixed cadence inside the typing
-    // window so the audio doesn't get cluttered when messages are long.
+    // The player computes the effective typing duration this way for the
+    // composer (so 2-char messages still get a visible typing animation).
     const typingMs = scale(
       isOwner
         ? Math.max(msg.typingMs, msg.text.length * 50)
         : msg.typingMs,
     );
 
-    if (isOwner && typingMs > 0) {
-      const interval = Math.max(o.minIntervalMs, scale(o.keystrokeIntervalMs));
-      // Cap keystrokes per message to keep the ffmpeg filter graph small.
-      const maxTicks = Math.min(
-        Math.floor(typingMs / interval),
-        Math.min(msg.text.length, 14),
-      );
-      for (let k = 0; k < maxTicks; k++) {
-        const at = tMs + interval * (k + 0.5);
-        events.push({ tSec: at / 1000, kind: "key" });
+    if (isOwner) {
+      if (typingMs > 0) {
+        events.push({ tSec: tMs / 1000, kind: "type", durationMs: typingMs });
       }
       tMs += typingMs;
-      // Tiny pause before tapping send, matches player.
+      // Tiny pause before the player taps send (matches main.js).
       tMs += scale(200);
-      events.push({ tSec: tMs / 1000, kind: "send" });
-      // Bubble fly animation duration before next message scheduling.
+      // Send animation duration before next message scheduling.
       tMs += scale(380);
     } else {
       // Incoming: typing indicator runs for typingMs, then bubble pops.

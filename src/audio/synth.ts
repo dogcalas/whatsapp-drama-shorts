@@ -9,90 +9,36 @@ const exec = promisify(execFile);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const SFX_DIR = path.resolve(__dirname, "..", "..", "assets", "sfx");
 
-/**
- * Synthesize the three short sound effects with ffmpeg if they don't exist yet.
- * Produces .wav files small enough to commit (a few KB each).
- *  - key.wav    : keystroke tick (~25 ms)
- *  - send.wav   : message-sent whoosh (~250 ms, rising)
- *  - receive.wav: incoming notification (~600 ms, two-tone)
- */
+const TYPING_SRC = path.join(SFX_DIR, "typing.mp3");
+const RECEIVE_SRC = path.join(SFX_DIR, "receive.mp3");
+
+async function exists(p: string): Promise<boolean> {
+  return fs
+    .access(p)
+    .then(() => true)
+    .catch(() => false);
+}
+
 export async function ensureSfx(): Promise<void> {
-  await fs.mkdir(SFX_DIR, { recursive: true });
-  const have = async (f: string) =>
-    fs
-      .access(path.join(SFX_DIR, f))
-      .then(() => true)
-      .catch(() => false);
-
-  if (!(await have("key.wav"))) {
-    // Short, soft click around 2.2 kHz with a quick decay envelope.
-    await exec("ffmpeg", [
-      "-y",
-      "-f",
-      "lavfi",
-      "-i",
-      "sine=frequency=2200:duration=0.025",
-      "-af",
-      "volume=0.35,afade=t=out:st=0.005:d=0.02",
-      "-ar",
-      "44100",
-      "-ac",
-      "1",
-      path.join(SFX_DIR, "key.wav"),
-    ]);
-  }
-
-  if (!(await have("send.wav"))) {
-    // Upward chirp 600 → 1400 Hz, soft volume, ~180 ms.
-    await exec("ffmpeg", [
-      "-y",
-      "-f",
-      "lavfi",
-      "-i",
-      "sine=frequency=600:duration=0.18,asetrate=44100*1.0",
-      "-af",
-      "volume=0.45,afade=t=out:st=0.08:d=0.1,aresample=44100",
-      "-ar",
-      "44100",
-      "-ac",
-      "1",
-      path.join(SFX_DIR, "send.wav"),
-    ]);
-  }
-
-  if (!(await have("receive.wav"))) {
-    // Two-tone notification: 900 Hz then 1200 Hz, ~500 ms total.
-    await exec("ffmpeg", [
-      "-y",
-      "-f",
-      "lavfi",
-      "-i",
-      "sine=frequency=900:duration=0.13",
-      "-f",
-      "lavfi",
-      "-i",
-      "sine=frequency=1200:duration=0.16",
-      "-filter_complex",
-      "[0:a]volume=0.45,afade=t=out:st=0.07:d=0.06[a0];" +
-        "[1:a]volume=0.45,adelay=160|160,afade=t=out:st=0.1:d=0.06[a1];" +
-        "[a0][a1]amix=inputs=2:normalize=0",
-      "-ar",
-      "44100",
-      "-ac",
-      "1",
-      path.join(SFX_DIR, "receive.wav"),
-    ]);
+  for (const p of [TYPING_SRC, RECEIVE_SRC]) {
+    if (!(await exists(p))) {
+      throw new Error(`Missing audio asset: ${path.relative(process.cwd(), p)}`);
+    }
   }
 }
 
-export interface TimelineEvent {
-  tSec: number;
-  kind: "key" | "send" | "receive";
-}
+export type TimelineEvent =
+  | { tSec: number; kind: "type"; durationMs: number }
+  | { tSec: number; kind: "receive" };
 
 /**
- * Renders a single mono WAV audio track that mixes all timeline events at
- * their requested offsets. Uses ffmpeg amix + adelay filters.
+ * Render a mono audio track that plays the typing sound during each owner
+ * message's typing window and the receive sound at each incoming message.
+ *
+ * Strategy: each event becomes one ffmpeg input; the input is delayed with
+ * `adelay`, "typing" events are also trimmed to their duration with `atrim`,
+ * and a final `amix` blends them all into one track padded with silence to
+ * the requested duration.
  */
 export async function renderAudioTrack(args: {
   events: TimelineEvent[];
@@ -115,16 +61,33 @@ export async function renderAudioTrack(args: {
     return;
   }
 
-  // Build ffmpeg filter graph: one input per event (re-using the small wav
-  // files), each delayed with adelay, then amixed together.
   const inputs: string[] = [];
   const filters: string[] = [];
   const labels: string[] = [];
 
   events.forEach((evt, i) => {
-    inputs.push("-i", path.join(SFX_DIR, `${evt.kind}.wav`));
-    const ms = Math.max(0, Math.round(evt.tSec * 1000));
-    filters.push(`[${i}:a]adelay=${ms}|${ms},apad[a${i}]`);
+    if (evt.kind === "type") {
+      inputs.push("-i", TYPING_SRC);
+    } else {
+      inputs.push("-i", RECEIVE_SRC);
+    }
+    const delayMs = Math.max(0, Math.round(evt.tSec * 1000));
+    if (evt.kind === "type") {
+      // Trim the typing sample to the typing window, fade out the last 80ms
+      // so it doesn't cut off harshly when the user "stops typing".
+      const dur = (evt.durationMs / 1000).toFixed(3);
+      const fadeStart = Math.max(0, evt.durationMs / 1000 - 0.08).toFixed(3);
+      filters.push(
+        `[${i}:a]atrim=duration=${dur},asetpts=PTS-STARTPTS,` +
+          `afade=t=in:st=0:d=0.04,afade=t=out:st=${fadeStart}:d=0.08,` +
+          `volume=0.85,` +
+          `adelay=${delayMs}|${delayMs},apad[a${i}]`,
+      );
+    } else {
+      filters.push(
+        `[${i}:a]volume=0.9,adelay=${delayMs}|${delayMs},apad[a${i}]`,
+      );
+    }
     labels.push(`[a${i}]`);
   });
 
@@ -133,8 +96,7 @@ export async function renderAudioTrack(args: {
     ";" +
     labels.join("") +
     `amix=inputs=${events.length}:normalize=0:dropout_transition=0,` +
-    `atrim=duration=${durationSec.toFixed(3)},` +
-    `asetpts=PTS-STARTPTS`;
+    `atrim=duration=${durationSec.toFixed(3)},asetpts=PTS-STARTPTS`;
 
   await exec("ffmpeg", [
     "-y",
@@ -149,17 +111,32 @@ export async function renderAudioTrack(args: {
   ]);
 }
 
+/**
+ * Mux video + audio into MP4. Optionally trims the front of the video by
+ * `videoTrimMs` so that t=0 in the output matches the moment the player
+ * began executing — without this the recording includes the Playwright
+ * page-load preamble and audio drifts ahead of picture.
+ */
 export async function muxVideoAudio(args: {
   videoPath: string;
   audioPath: string;
   outputPath: string;
+  videoTrimMs?: number;
 }): Promise<void> {
+  const trim = Math.max(0, args.videoTrimMs ?? 0);
+  // -ss before -i is fast and frame-accurate enough with re-encode.
+  const seekArgs = trim > 0 ? ["-ss", (trim / 1000).toFixed(3)] : [];
   await exec("ffmpeg", [
     "-y",
+    ...seekArgs,
     "-i",
     args.videoPath,
     "-i",
     args.audioPath,
+    "-map",
+    "0:v:0",
+    "-map",
+    "1:a:0",
     "-c:v",
     "libx264",
     "-pix_fmt",
