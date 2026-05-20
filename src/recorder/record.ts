@@ -28,6 +28,10 @@ interface RawEvent {
   kind: "type-start" | "type-end" | "receive" | "send";
 }
 
+interface AnchorState {
+  pageWallclockMs: number;
+}
+
 function eventsToTimeline(raw: RawEvent[]): TimelineEvent[] {
   const out: TimelineEvent[] = [];
   let typingStart: number | null = null;
@@ -76,13 +80,17 @@ export async function recordScript(opts: RecordOptions): Promise<string> {
     // Recording is live now. Use this anchor to compute the video trim.
     const recordStartT = Date.now();
 
-    // Page emits its own performance.now() timestamp with each event so we
-    // don't accumulate the CDP transport latency in our timeline.
     const rawEvents: RawEvent[] = [];
+    const anchor: AnchorState = { pageWallclockMs: 0 };
+
     await page.exposeFunction(
       "__audioNotify",
-      (kind: RawEvent["kind"], tMs: number) => {
-        rawEvents.push({ tMs, kind });
+      (kind: string, tMs: number, wallclockMs?: number) => {
+        if (kind === "anchor") {
+          anchor.pageWallclockMs = wallclockMs ?? Date.now();
+          return;
+        }
+        rawEvents.push({ tMs, kind: kind as RawEvent["kind"] });
       },
     );
 
@@ -109,7 +117,18 @@ export async function recordScript(opts: RecordOptions): Promise<string> {
 
     const wantsMp4 = opts.outputPath.endsWith(".mp4");
     const withAudio = opts.withAudio ?? wantsMp4;
-    const videoTrimMs = Math.max(0, playStartT - recordStartT);
+
+    // Trim the video to the wall-clock moment the page captured its anchor
+    // (right after preloadAvatars), not the moment Node fired evaluate().
+    // These can differ by hundreds of ms — using Node's time would offset
+    // the entire audio track by that amount.
+    const anchorWall = anchor.pageWallclockMs || playStartT;
+    const videoTrimMs = Math.max(0, anchorWall - recordStartT);
+    if (process.env.DRAMA_DEBUG) {
+      process.stderr.write(
+        `[debug] recordStartT=${recordStartT} playStartT=${playStartT} anchor=${anchorWall} trim=${videoTrimMs}ms events=${rawEvents.length}\n`,
+      );
+    }
 
     if (!withAudio) {
       const finalPath = opts.outputPath.endsWith(".webm")

@@ -310,8 +310,19 @@ async function playScript(script, opts = {}) {
 
   // Anchor the audio timeline to the moment we *start* playing on the page.
   // All `fire(kind)` calls below report (performance.now() - this anchor),
-  // so the recorder builds the audio track from page-time, not Node-time.
+  // and we also send the wall-clock equivalent (Date.now()) so the recorder
+  // can align the video trim to the same instant. Without this, Node uses
+  // its own pre-evaluate Date.now() which can be hundreds of ms earlier
+  // (preloadAvatars + setup), producing a constant offset between visuals
+  // and sound.
   window.__playStartPerf = performance.now();
+  try {
+    if (typeof window.__audioNotify === "function") {
+      window.__audioNotify("anchor", 0, Date.now());
+    }
+  } catch {
+    // ignore
+  }
 
   if (opts.startDelayMs) await sleep(scale(opts.startDelayMs));
 
