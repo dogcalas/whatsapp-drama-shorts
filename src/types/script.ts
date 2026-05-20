@@ -49,6 +49,10 @@ export const ScriptSchema = z.object({
     hook: z.string().min(1),
     twist: z.string().min(1),
     estimatedDurationSeconds: z.number().int().min(15).max(180),
+    startTime: z
+      .string()
+      .regex(/^([01]?\d|2[0-3]):[0-5]\d$/)
+      .default("22:14"),
   }),
   chatName: z.string().min(1),
   isGroup: z.boolean().default(false),

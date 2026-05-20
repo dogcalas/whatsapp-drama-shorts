@@ -2,9 +2,10 @@
 
 :root {
   --bg-chat: #0b141a;
-  --bg-header: #202c33;
-  --bg-composer: #202c33;
-  --bubble-in: #202c33;
+  --bg-header: #1f2c33;
+  --bg-composer: #1f2c33;
+  --bg-statusbar: #1f2c33;
+  --bubble-in: #1f2c33;
   --bubble-out: #005c4b;
   --text-primary: #e9edef;
   --text-secondary: #8696a0;
@@ -25,7 +26,7 @@ body {
   height: 1920px;
   background: #000;
   color: var(--text-primary);
-  font-family: "Helvetica Neue", "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-family: "Roboto", "Helvetica Neue", "Segoe UI", system-ui, -apple-system, sans-serif;
   overflow: hidden;
 }
 
@@ -42,38 +43,76 @@ body {
   width: 1080px;
   height: 1920px;
   display: grid;
-  grid-template-rows: 140px 1fr 130px;
+  grid-template-rows: 64px 140px 1fr 130px;
   background: var(--bg-chat);
   overflow: hidden;
   position: relative;
+}
+
+/* ---------------- Status bar ---------------- */
+#status-bar {
+  background: var(--bg-statusbar);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 36px;
+  font-size: 28px;
+  font-weight: 500;
+  color: var(--text-primary);
+  letter-spacing: 0.3px;
+}
+.sb-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: var(--text-primary);
+}
+.sb-ic {
+  width: 30px;
+  height: 22px;
+}
+.sb-ic.sb-bat {
+  width: 44px;
+  height: 22px;
+}
+.sb-bat-pct {
+  font-size: 22px;
+  font-weight: 500;
+  margin-right: 2px;
+  margin-left: 4px;
 }
 
 /* ---------------- Header ---------------- */
 #chat-header {
   background: var(--bg-header);
   display: grid;
-  grid-template-columns: 64px 96px 1fr auto;
+  grid-template-columns: 60px 96px 1fr auto;
   align-items: center;
-  padding: 0 24px;
-  gap: 16px;
+  padding: 0 28px 0 16px;
+  gap: 18px;
   border-bottom: 1px solid #11181d;
 }
 .back {
   background: none;
   border: 0;
   color: var(--text-primary);
-  font-size: 60px;
-  line-height: 1;
   cursor: default;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.back svg {
+  width: 42px;
+  height: 42px;
 }
 .avatar {
-  width: 84px;
-  height: 84px;
+  width: 88px;
+  height: 88px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 34px;
+  font-size: 36px;
   font-weight: 600;
   color: white;
   background: #6a7d8a;
@@ -81,19 +120,28 @@ body {
 }
 #chat-header .who .name {
   font-size: 34px;
-  font-weight: 600;
-  letter-spacing: 0.2px;
+  font-weight: 500;
+  letter-spacing: 0.1px;
 }
 #chat-header .who .status {
-  font-size: 24px;
+  font-size: 22px;
   color: var(--text-secondary);
   margin-top: 4px;
+  font-weight: 400;
 }
 #chat-header .actions {
   display: flex;
-  gap: 24px;
-  color: var(--text-secondary);
-  font-size: 38px;
+  align-items: center;
+  gap: 36px;
+  color: var(--text-primary);
+}
+.hdr-ic {
+  width: 44px;
+  height: 44px;
+}
+.hdr-ic-sm {
+  width: 32px;
+  height: 32px;
 }
 
 /* ---------------- Chat ---------------- */
@@ -105,7 +153,6 @@ body {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 14px;
 }
 
 .date-pill {
@@ -115,13 +162,23 @@ body {
   font-size: 22px;
   padding: 8px 22px;
   border-radius: 14px;
-  margin-bottom: 8px;
+  margin-bottom: 14px;
   letter-spacing: 0.4px;
+}
+
+/* Static-render mode: disable bubble animations so screenshots are crisp. */
+.no-anim *,
+.no-anim {
+  animation: none !important;
 }
 
 .row {
   display: flex;
   width: 100%;
+  margin-top: 10px;
+}
+.row:first-of-type {
+  margin-top: 0;
 }
 .row.in {
   justify-content: flex-start;
@@ -129,14 +186,18 @@ body {
 .row.out {
   justify-content: flex-end;
 }
+/* When grouped (same sender as previous), tighten and remove the tail. */
+.row.continued {
+  margin-top: 4px;
+}
 
 .bubble {
   position: relative;
   max-width: 78%;
-  padding: 18px 22px 32px;
+  padding: 16px 22px 30px;
   border-radius: 18px;
-  font-size: 36px;
-  line-height: 1.28;
+  font-size: 34px;
+  line-height: 1.3;
   color: var(--text-primary);
   word-wrap: break-word;
   white-space: pre-wrap;
@@ -152,65 +213,48 @@ body {
   background: var(--bubble-out);
   border-top-right-radius: 6px;
 }
+/* Grouped bubble: drop the tail-corner asymmetry. */
+.row.continued.in .bubble {
+  border-top-left-radius: 18px;
+}
+.row.continued.out .bubble {
+  border-top-right-radius: 18px;
+}
+
 .bubble .meta {
   position: absolute;
-  right: 16px;
-  bottom: 8px;
+  right: 14px;
+  bottom: 6px;
   display: flex;
   align-items: center;
   gap: 6px;
   font-size: 20px;
-  color: rgba(233, 237, 239, 0.6);
+  color: rgba(233, 237, 239, 0.55);
 }
 .row.out .bubble .meta {
   color: rgba(233, 237, 239, 0.7);
 }
-.tick {
-  display: inline-block;
-  width: 28px;
-  height: 16px;
-  position: relative;
+.meta .tick-svg {
+  width: 30px;
+  height: 18px;
+  color: rgba(233, 237, 239, 0.7);
 }
-.tick::before,
-.tick::after {
-  content: "";
-  position: absolute;
-  width: 12px;
-  height: 6px;
-  border-bottom: 3px solid currentColor;
-  border-right: 3px solid currentColor;
-  transform: rotate(45deg);
-  top: 0;
-}
-.tick::before {
-  left: 0;
-}
-.tick::after {
-  left: 8px;
-}
-.tick.read {
+.meta .tick-svg.read {
   color: var(--tick-read);
 }
 
 .sender-name {
   font-size: 22px;
-  color: #ffb4a3;
-  font-weight: 600;
-  margin-bottom: 6px;
+  font-weight: 500;
+  margin-bottom: 4px;
 }
-.row.in .bubble.color-1 .sender-name {
-  color: #53bdeb;
-}
-.row.in .bubble.color-2 .sender-name {
-  color: #f5c451;
-}
-.row.in .bubble.color-3 .sender-name {
-  color: #ff9eb1;
-}
+.row.in .bubble.color-1 .sender-name { color: #53bdeb; }
+.row.in .bubble.color-2 .sender-name { color: #f5c451; }
+.row.in .bubble.color-3 .sender-name { color: #ff9eb1; }
 
 /* Voice note bubble */
 .bubble.voice {
-  padding: 22px 24px;
+  padding: 20px 22px;
   display: flex;
   align-items: center;
   gap: 16px;
@@ -228,7 +272,7 @@ body {
 }
 .voice .wave {
   flex: 1;
-  height: 30px;
+  height: 28px;
   background: repeating-linear-gradient(
     90deg,
     rgba(255, 255, 255, 0.45) 0 4px,
@@ -237,7 +281,7 @@ body {
   border-radius: 2px;
 }
 .voice .duration {
-  font-size: 24px;
+  font-size: 22px;
   color: rgba(233, 237, 239, 0.7);
   min-width: 80px;
   text-align: right;
@@ -245,9 +289,10 @@ body {
 
 /* Typing indicator */
 .row.typing .bubble {
-  padding: 22px 26px;
+  padding: 20px 26px;
   display: flex;
   gap: 10px;
+  border-top-left-radius: 6px;
 }
 .typing-dot {
   width: 14px;
@@ -278,7 +323,7 @@ body {
 
 @keyframes pop {
   0% {
-    transform: scale(0.82) translateY(8px);
+    transform: scale(0.86) translateY(8px);
     opacity: 0;
   }
   60% {
@@ -290,67 +335,62 @@ body {
   }
 }
 
-/* Emphasis */
+/* Emphasis variants */
 .bubble.dramatic {
   animation: pop 260ms ease-out, shake 320ms ease-out 220ms;
 }
 @keyframes shake {
-  0%,
-  100% {
-    transform: translateX(0);
-  }
-  25% {
-    transform: translateX(-3px);
-  }
-  75% {
-    transform: translateX(3px);
-  }
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-3px); }
+  75% { transform: translateX(3px); }
 }
 .bubble.angry {
   box-shadow:
     0 1px 1px rgba(0, 0, 0, 0.18),
     0 0 0 2px rgba(255, 76, 76, 0.18);
 }
-.bubble.sad {
-  filter: saturate(0.7);
-}
-.bubble.cold {
-  filter: brightness(0.92);
-}
+.bubble.sad { filter: saturate(0.7); }
+.bubble.cold { filter: brightness(0.92); }
 
 /* ---------------- Composer ---------------- */
 #composer {
   background: var(--bg-composer);
   display: grid;
-  grid-template-columns: 70px 1fr 70px 70px 90px;
-  gap: 16px;
+  grid-template-columns: 70px 1fr 70px 70px 100px;
+  gap: 18px;
   align-items: center;
   padding: 0 24px;
   border-top: 1px solid #11181d;
 }
-#composer .icon {
-  font-size: 38px;
+.cmp-ic {
+  width: 44px;
+  height: 44px;
   color: var(--text-secondary);
-  text-align: center;
+  justify-self: center;
 }
 #composer .input-fake {
   background: #2a3942;
   color: var(--text-secondary);
   border-radius: 30px;
-  padding: 20px 24px;
-  font-size: 30px;
+  padding: 20px 26px;
+  font-size: 28px;
   height: 78px;
   display: flex;
   align-items: center;
 }
 #composer .send-mic {
-  width: 90px;
-  height: 90px;
+  width: 92px;
+  height: 92px;
   border-radius: 50%;
   background: #00a884;
+  border: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 40px;
   color: white;
+  justify-self: end;
+}
+#composer .send-mic svg {
+  width: 46px;
+  height: 46px;
 }

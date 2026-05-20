@@ -4,22 +4,93 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=1080,initial-scale=1" />
     <title>WhatsApp Drama Short</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
+    <!-- Inline SVG sprite — referenced via <use href="#icon-..."> below. -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+      <defs>
+        <!-- Header -->
+        <symbol id="icon-back" viewBox="0 0 24 24">
+          <path d="M15.5 3.5 7 12l8.5 8.5 1.5-1.5L10 12l7-7z" fill="currentColor"/>
+        </symbol>
+        <symbol id="icon-videocall" viewBox="0 0 24 24">
+          <path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h11A1.5 1.5 0 0 1 17 6.5v3.2l3.7-2.4a.5.5 0 0 1 .8.4v8.6a.5.5 0 0 1-.8.4L17 14.3v3.2A1.5 1.5 0 0 1 15.5 19h-11A1.5 1.5 0 0 1 3 17.5z" fill="currentColor"/>
+        </symbol>
+        <symbol id="icon-call" viewBox="0 0 24 24">
+          <path d="M6.6 10.8a15 15 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25c1.1.36 2.3.55 3.5.55a1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A18 18 0 0 1 2 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.2.2 2.4.55 3.5a1 1 0 0 1-.25 1z" fill="currentColor"/>
+        </symbol>
+        <symbol id="icon-more" viewBox="0 0 24 24">
+          <circle cx="12" cy="5" r="2" fill="currentColor"/>
+          <circle cx="12" cy="12" r="2" fill="currentColor"/>
+          <circle cx="12" cy="19" r="2" fill="currentColor"/>
+        </symbol>
+        <!-- Composer -->
+        <symbol id="icon-smile" viewBox="0 0 24 24">
+          <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm-3.5 8a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm7 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm-3.5 7a5 5 0 0 1-4.5-2.8l1.8-.9A3 3 0 0 0 12 15a3 3 0 0 0 2.7-1.7l1.8.9A5 5 0 0 1 12 17Z" fill="currentColor"/>
+        </symbol>
+        <symbol id="icon-clip" viewBox="0 0 24 24">
+          <path d="M16.5 6.5v9a4.5 4.5 0 1 1-9 0V5a3 3 0 1 1 6 0v9a1.5 1.5 0 1 1-3 0V6.5h-1.5V14a3 3 0 0 0 6 0V5a4.5 4.5 0 0 0-9 0v10.5a6 6 0 1 0 12 0v-9z" fill="currentColor"/>
+        </symbol>
+        <symbol id="icon-camera" viewBox="0 0 24 24">
+          <path d="M9 4 7.5 6H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-3.5L15 4H9Zm3 4.5a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9Zm0 2a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Z" fill="currentColor"/>
+        </symbol>
+        <symbol id="icon-mic" viewBox="0 0 24 24">
+          <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2Z" fill="currentColor"/>
+        </symbol>
+        <!-- Ticks -->
+        <symbol id="icon-tick" viewBox="0 0 16 11">
+          <path d="M11.07.4 5.04 6.41 3 4.36l-1.06 1.07L5.04 8.5l7.1-7.04L11.07.4Zm3.93 0L8.97 6.41 9.85 7.3l6.04-5.85L15 .4Z" fill="currentColor"/>
+        </symbol>
+        <!-- Status bar -->
+        <symbol id="icon-signal" viewBox="0 0 18 12">
+          <rect x="0" y="8" width="3" height="4" rx="0.5" fill="currentColor"/>
+          <rect x="5" y="5" width="3" height="7" rx="0.5" fill="currentColor"/>
+          <rect x="10" y="2" width="3" height="10" rx="0.5" fill="currentColor"/>
+          <rect x="15" y="0" width="3" height="12" rx="0.5" fill="currentColor" opacity="0.45"/>
+        </symbol>
+        <symbol id="icon-wifi" viewBox="0 0 18 14">
+          <path d="M9 14a1.7 1.7 0 1 0 0-3.4A1.7 1.7 0 0 0 9 14Zm-4-3.5 1.6 1.6a3.4 3.4 0 0 1 4.8 0L13 10.5a5.7 5.7 0 0 0-8 0Zm-3-3 1.6 1.6a7.7 7.7 0 0 1 10.8 0L16 7.5a10 10 0 0 0-14 0Zm-3-3 1.6 1.6a12 12 0 0 1 16.8 0L19 4.5a14.2 14.2 0 0 0-20 0Z" fill="currentColor"/>
+        </symbol>
+        <symbol id="icon-battery" viewBox="0 0 28 12">
+          <rect x="0.5" y="0.5" width="25" height="11" rx="2.5" ry="2.5" fill="none" stroke="currentColor" stroke-width="1"/>
+          <rect x="27" y="3.5" width="1.5" height="5" rx="0.5" fill="currentColor"/>
+          <rect id="battery-fill" x="2" y="2" width="18" height="8" rx="1.5" fill="currentColor"/>
+        </symbol>
+      </defs>
+    </svg>
+
     <div id="stage">
       <div id="phone">
+        <div id="status-bar">
+          <div class="sb-time" id="sb-time">22:14</div>
+          <div class="sb-right">
+            <svg class="sb-ic"><use href="#icon-signal" /></svg>
+            <svg class="sb-ic"><use href="#icon-wifi" /></svg>
+            <span class="sb-bat-pct">87</span>
+            <svg class="sb-ic sb-bat"><use href="#icon-battery" /></svg>
+          </div>
+        </div>
+
         <header id="chat-header">
-          <button class="back" aria-label="Back">‹</button>
+          <button class="back" aria-label="Back">
+            <svg><use href="#icon-back" /></svg>
+          </button>
           <div class="avatar" id="header-avatar">?</div>
           <div class="who">
             <div class="name" id="header-name">…</div>
             <div class="status" id="header-status">online</div>
           </div>
           <div class="actions">
-            <span class="icon" aria-hidden="true">📹</span>
-            <span class="icon" aria-hidden="true">📞</span>
-            <span class="icon" aria-hidden="true">⋮</span>
+            <svg class="hdr-ic"><use href="#icon-videocall" /></svg>
+            <svg class="hdr-ic"><use href="#icon-call" /></svg>
+            <svg class="hdr-ic hdr-ic-sm"><use href="#icon-more" /></svg>
           </div>
         </header>
 
@@ -28,14 +99,16 @@
         </main>
 
         <footer id="composer">
-          <span class="icon">😊</span>
+          <svg class="cmp-ic"><use href="#icon-smile" /></svg>
           <div class="input-fake">Message</div>
-          <span class="icon">📎</span>
-          <span class="icon">📷</span>
-          <span class="send-mic">🎤</span>
+          <svg class="cmp-ic"><use href="#icon-clip" /></svg>
+          <svg class="cmp-ic"><use href="#icon-camera" /></svg>
+          <button class="send-mic" aria-label="Send">
+            <svg><use href="#icon-mic" /></svg>
+          </button>
         </footer>
       </div>
     </div>
-    <script type="module" src="main.js"></script>
+    <script src="main.js"></script>
   </body>
 </html>

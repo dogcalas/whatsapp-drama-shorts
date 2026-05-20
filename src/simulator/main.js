@@ -12,6 +12,18 @@ function el(tag, className) {
   return node;
 }
 
+function svgUse(href, className) {
+  const NS = "http://www.w3.org/2000/svg";
+  const XLINK = "http://www.w3.org/1999/xlink";
+  const svg = document.createElementNS(NS, "svg");
+  if (className) svg.setAttribute("class", className);
+  const use = document.createElementNS(NS, "use");
+  use.setAttributeNS(XLINK, "href", href);
+  use.setAttribute("href", href);
+  svg.appendChild(use);
+  return svg;
+}
+
 function chatEl() {
   const node = document.getElementById("chat");
   if (!node) throw new Error("#chat missing");
@@ -23,16 +35,36 @@ function scrollToBottom() {
   c.scrollTop = c.scrollHeight;
 }
 
-function timeNow(lang) {
-  const d = new Date();
-  let h = d.getHours();
-  const m = d.getMinutes().toString().padStart(2, "0");
+function pad2(n) {
+  return n.toString().padStart(2, "0");
+}
+
+function formatTime(hh, mm, lang) {
   if (lang === "en") {
-    const ampm = h >= 12 ? "PM" : "AM";
-    h = h % 12 || 12;
-    return `${h}:${m} ${ampm}`;
+    const ampm = hh >= 12 ? "PM" : "AM";
+    const h12 = hh % 12 || 12;
+    return `${h12}:${pad2(mm)} ${ampm}`;
   }
-  return `${h.toString().padStart(2, "0")}:${m}`;
+  return `${pad2(hh)}:${pad2(mm)}`;
+}
+
+function precomputeTimes(script) {
+  const [sh, sm] = (script.meta.startTime || "22:14").split(":").map(Number);
+  const baseMs = sh * 3600000 + sm * 60000;
+  let elapsed = 0;
+  return script.messages.map((m) => {
+    elapsed += (m.preDelayMs || 0) + (m.typingMs || 0);
+    const total = baseMs + elapsed;
+    const hh = Math.floor(total / 3600000) % 24;
+    const mm = Math.floor((total % 3600000) / 60000);
+    return { hh, mm };
+  });
+}
+
+function setStatusBar(script) {
+  const sbTime = document.getElementById("sb-time");
+  const [sh, sm] = (script.meta.startTime || "22:14").split(":").map(Number);
+  sbTime.textContent = formatTime(sh, sm, script.meta.language);
 }
 
 function setHeader(script) {
@@ -70,14 +102,14 @@ function colorClassForSender(script, fromId) {
   return SENDER_COLOR_CLASSES[Math.max(0, idx) % SENDER_COLOR_CLASSES.length];
 }
 
-function buildBubble(script, msg, isOwner) {
-  const row = el("div", `row ${isOwner ? "out" : "in"}`);
+function buildBubble(script, msg, isOwner, displayedTime, isContinued) {
+  const row = el("div", `row ${isOwner ? "out" : "in"}${isContinued ? " continued" : ""}`);
   const bubble = el(
     "div",
     `bubble ${msg.emphasis || "normal"} ${colorClassForSender(script, msg.from)}`,
   );
 
-  if (script.isGroup && !isOwner) {
+  if (script.isGroup && !isOwner && !isContinued) {
     const senderName = el("div", "sender-name");
     const sender = script.participants.find((p) => p.id === msg.from);
     senderName.textContent = sender?.name ?? msg.from;
@@ -99,9 +131,11 @@ function buildBubble(script, msg, isOwner) {
 
   const meta = el("div", "meta");
   const time = el("span");
-  time.textContent = timeNow(script.meta.language);
+  time.textContent = displayedTime;
   meta.appendChild(time);
-  if (isOwner) meta.appendChild(el("span", "tick"));
+  if (isOwner) {
+    meta.appendChild(svgUse("#icon-tick", "tick-svg"));
+  }
   bubble.appendChild(meta);
   row.appendChild(bubble);
   return { row, meta };
@@ -122,17 +156,22 @@ async function playScript(script, opts = {}) {
   const chat = chatEl();
   chat.querySelectorAll(".row").forEach((n) => n.remove());
 
+  setStatusBar(script);
   setHeader(script);
 
-  // Show typing indicator in the header for incoming messages, like WhatsApp does.
   const headerStatus = document.getElementById("header-status");
   const originalStatus = headerStatus.textContent;
 
+  const times = precomputeTimes(script);
+
   if (opts.startDelayMs) await sleep(scale(opts.startDelayMs));
 
-  for (const msg of script.messages) {
+  let prevFrom = null;
+  for (let i = 0; i < script.messages.length; i++) {
+    const msg = script.messages[i];
     const sender = script.participants.find((p) => p.id === msg.from);
     const isOwner = sender?.isOwner ?? false;
+    const isContinued = msg.from === prevFrom;
 
     if (msg.preDelayMs > 0) await sleep(scale(msg.preDelayMs));
 
@@ -151,22 +190,52 @@ async function playScript(script, opts = {}) {
 
     if (typingRow) typingRow.remove();
 
-    const { row, meta } = buildBubble(script, msg, isOwner);
+    const t = times[i];
+    const display = formatTime(t.hh, t.mm, script.meta.language);
+    const { row, meta } = buildBubble(script, msg, isOwner, display, isContinued);
     chat.appendChild(row);
     scrollToBottom();
 
     if (isOwner) {
-      const tick = meta.querySelector(".tick");
+      const tick = meta.querySelector(".tick-svg");
       if (tick) {
         await sleep(scale(Math.min(msg.readDelayMs, 600)));
         if (msg.readDelayMs > 600) await sleep(scale(msg.readDelayMs - 600));
         tick.classList.add("read");
       }
     }
+    prevFrom = msg.from;
   }
 
   await sleep(scale(opts.endHoldMs ?? 1800));
 }
 
+// Render a static script (no animation, no delays). Useful for snapshots.
+async function renderStatic(script) {
+  const chat = chatEl();
+  chat.querySelectorAll(".row").forEach((n) => n.remove());
+  document.body.classList.add("no-anim");
+  setStatusBar(script);
+  setHeader(script);
+  const times = precomputeTimes(script);
+  let prevFrom = null;
+  script.messages.forEach((msg, i) => {
+    const sender = script.participants.find((p) => p.id === msg.from);
+    const isOwner = sender?.isOwner ?? false;
+    const isContinued = msg.from === prevFrom;
+    const t = times[i];
+    const display = formatTime(t.hh, t.mm, script.meta.language);
+    const { row, meta } = buildBubble(script, msg, isOwner, display, isContinued);
+    if (isOwner) {
+      const tick = meta.querySelector(".tick-svg");
+      if (tick) tick.classList.add("read");
+    }
+    chat.appendChild(row);
+    prevFrom = msg.from;
+  });
+  scrollToBottom();
+}
+
 window.__playReady = true;
 window.__playScript = playScript;
+window.__renderStatic = renderStatic;
