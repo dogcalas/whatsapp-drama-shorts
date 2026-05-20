@@ -22,6 +22,9 @@ export const ParticipantSchema = z.object({
     .regex(/^#[0-9a-fA-F]{6}$/)
     .optional(),
   avatarInitial: z.string().max(2).optional(),
+  avatarUrl: z.string().url().optional(),
+  /** Deterministic seed used to pick a photo when avatarUrl is missing. */
+  avatarSeed: z.string().optional(),
 });
 export type Participant = z.infer<typeof ParticipantSchema>;
 
@@ -31,9 +34,9 @@ export const MessageSchema = z.object({
   from: z.string().min(1),
   kind: MessageKindSchema.default("text"),
   text: z.string().min(1),
-  preDelayMs: z.number().int().min(0).max(15000),
-  typingMs: z.number().int().min(0).max(15000),
-  readDelayMs: z.number().int().min(0).max(10000).default(800),
+  preDelayMs: z.number().int().min(0).max(5000),
+  typingMs: z.number().int().min(0).max(5000),
+  readDelayMs: z.number().int().min(0).max(2500).default(800),
   emphasis: z
     .enum(["normal", "dramatic", "angry", "sad", "cold"])
     .default("normal"),

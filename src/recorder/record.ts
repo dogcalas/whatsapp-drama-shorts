@@ -3,13 +3,16 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import path from "node:path";
 import fs from "node:fs/promises";
 import type { Script } from "../types/script.ts";
+import { buildTimeline } from "../audio/timeline.ts";
+import { muxVideoAudio, renderAudioTrack } from "../audio/synth.ts";
 
 export interface RecordOptions {
   script: Script;
-  outputPath: string; // .webm or .mp4 (will be saved as .webm by Playwright; we rename)
+  outputPath: string; // .webm or .mp4 (mp4 triggers ffmpeg post-process with audio)
   speed?: number;
   startDelayMs?: number;
   endHoldMs?: number;
+  withAudio?: boolean; // default true when outputPath ends with .mp4
 }
 
 const __filename = fileURLToPath(import.meta.url);
@@ -70,12 +73,37 @@ export async function recordScript(opts: RecordOptions): Promise<string> {
     if (!video) throw new Error("Playwright did not produce a video.");
     const rawPath = await video.path();
 
-    const finalPath = opts.outputPath.endsWith(".webm")
-      ? opts.outputPath
-      : opts.outputPath.replace(/\.mp4$/i, "") + ".webm";
+    const wantsMp4 = opts.outputPath.endsWith(".mp4");
+    const withAudio = opts.withAudio ?? wantsMp4;
 
-    await fs.rename(rawPath, finalPath);
-    return finalPath;
+    if (!withAudio) {
+      const finalPath = opts.outputPath.endsWith(".webm")
+        ? opts.outputPath
+        : opts.outputPath.replace(/\.mp4$/i, "") + ".webm";
+      await fs.rename(rawPath, finalPath);
+      return finalPath;
+    }
+
+    // Build the audio track from the script timeline, then mux into mp4.
+    const { events, durationSec } = buildTimeline(opts.script, {
+      startDelayMs: opts.startDelayMs ?? 600,
+      endHoldMs: opts.endHoldMs ?? 1500,
+      speed: opts.speed ?? 1,
+    });
+    const audioPath = rawPath.replace(/\.webm$/, ".wav");
+    await renderAudioTrack({ events, durationSec, outputPath: audioPath });
+
+    const mp4Path = wantsMp4
+      ? opts.outputPath
+      : opts.outputPath.replace(/\.webm$/i, "") + ".mp4";
+    await muxVideoAudio({
+      videoPath: rawPath,
+      audioPath,
+      outputPath: mp4Path,
+    });
+    await fs.unlink(rawPath).catch(() => {});
+    await fs.unlink(audioPath).catch(() => {});
+    return mp4Path;
   } finally {
     await browser.close();
   }

@@ -92,28 +92,28 @@ program
 
 program
   .command("render")
-  .description("Render an existing script JSON to a video.")
+  .description("Render an existing script JSON to a video (.mp4 with audio).")
   .requiredOption("-i, --in <file>", "script JSON file")
-  .option("-o, --out <file>", "output video path (.webm)")
+  .option("-o, --out <file>", "output video path (.mp4 or .webm)")
   .option("--speed <n>", "playback speed multiplier", parseFloat, 1)
+  .option("--no-audio", "skip audio synthesis (.webm only, faster)")
   .action(async (opts) => {
     const script = await loadScript(opts.in);
+    const ext = opts.audio === false ? "webm" : "mp4";
     const outFile =
       opts.out ??
       path.join(
         OUTPUT_DIR,
-        `${timestamp()}-${slugify(script.meta.title)}.webm`,
+        `${timestamp()}-${slugify(script.meta.title)}.${ext}`,
       );
     process.stdout.write(`Rendering "${script.meta.title}"…\n`);
     const written = await recordScript({
       script,
       outputPath: outFile,
       speed: opts.speed,
+      withAudio: opts.audio !== false,
     });
     process.stdout.write(`✓ Video saved: ${path.relative(ROOT, written)}\n`);
-    process.stdout.write(
-      `  Convert to MP4: ffmpeg -i "${written}" -c:v libx264 -pix_fmt yuv420p -movflags +faststart "${written.replace(/\.webm$/, ".mp4")}"\n`,
-    );
   });
 
 program
@@ -146,8 +146,9 @@ program
     process.stdout.write(`Rendering…\n`);
     const written = await recordScript({
       script,
-      outputPath: `${base}.webm`,
+      outputPath: `${base}.mp4`,
       speed: opts.speed,
+      withAudio: true,
     });
     process.stdout.write(`✓ Video: ${path.relative(ROOT, written)}\n`);
   });

@@ -3,6 +3,7 @@
 // window.__playScript(script) and awaits it.
 
 const SENDER_COLOR_CLASSES = ["color-1", "color-2", "color-3"];
+const DEFAULT_AVATAR_BG = ["#6a7d8a", "#7f5af0", "#e67e7e", "#3aa386", "#f5c451"];
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -61,6 +62,61 @@ function precomputeTimes(script) {
   });
 }
 
+function hashSeed(s) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) {
+    h = (h * 31 + s.charCodeAt(i)) | 0;
+  }
+  return Math.abs(h);
+}
+
+function avatarUrlFor(p) {
+  if (p.avatarUrl) return p.avatarUrl;
+  const seed = p.avatarSeed || p.name;
+  const n = (hashSeed(seed) % 70) + 1; // pravatar has 1..70 IDs
+  return `https://i.pravatar.cc/200?img=${n}`;
+}
+
+function setAvatar(target, p) {
+  // Render an <img> in the avatar element. If it fails, fall back to initials.
+  target.innerHTML = "";
+  const initials = (
+    p.avatarInitial ?? (p.name?.trim()[0] ?? "?")
+  ).toUpperCase();
+  const initialNode = document.createTextNode(initials);
+  target.appendChild(initialNode);
+  if (p.color) target.style.background = p.color;
+  else target.style.background = DEFAULT_AVATAR_BG[hashSeed(p.name) % DEFAULT_AVATAR_BG.length];
+
+  const img = document.createElement("img");
+  img.referrerPolicy = "no-referrer";
+  img.alt = p.name;
+  img.onload = () => {
+    // remove initial fallback once the image is in
+    if (initialNode.parentNode === target) target.removeChild(initialNode);
+  };
+  img.onerror = () => {
+    img.remove();
+  };
+  img.src = avatarUrlFor(p);
+  target.appendChild(img);
+}
+
+async function preloadAvatars(script) {
+  const promises = script.participants.map(
+    (p) =>
+      new Promise((resolve) => {
+        const img = new Image();
+        img.referrerPolicy = "no-referrer";
+        img.onload = () => resolve();
+        img.onerror = () => resolve();
+        img.src = avatarUrlFor(p);
+        setTimeout(resolve, 3000); // hard cap
+      }),
+  );
+  await Promise.all(promises);
+}
+
 function setStatusBar(script) {
   const sbTime = document.getElementById("sb-time");
   const [sh, sm] = (script.meta.startTime || "22:14").split(":").map(Number);
@@ -85,13 +141,12 @@ function setHeader(script) {
     headerStatus.textContent = script.meta.language === "es" ? "en línea" : "online";
   }
 
-  const initialSource = script.isGroup
-    ? script.chatName
-    : others[0]?.name ?? "?";
-  headerAvatar.textContent = (
-    others[0]?.avatarInitial ?? initialSource.trim()[0] ?? "?"
-  ).toUpperCase();
-  if (others[0]?.color) headerAvatar.style.background = others[0].color;
+  if (script.isGroup) {
+    // Group avatar: stack of first two others — for simplicity use the first.
+    setAvatar(headerAvatar, others[0] ?? script.participants[0]);
+  } else {
+    setAvatar(headerAvatar, others[0] ?? script.participants[0]);
+  }
 
   datePill.textContent = script.meta.language === "es" ? "Hoy" : "Today";
 }
@@ -102,8 +157,25 @@ function colorClassForSender(script, fromId) {
   return SENDER_COLOR_CLASSES[Math.max(0, idx) % SENDER_COLOR_CLASSES.length];
 }
 
-function buildBubble(script, msg, isOwner, displayedTime, isContinued) {
-  const row = el("div", `row ${isOwner ? "out" : "in"}${isContinued ? " continued" : ""}`);
+function buildBubble(script, msg, isOwner, displayedTime, isContinued, extraClass) {
+  const row = el(
+    "div",
+    `row ${isOwner ? "out" : "in"}${isContinued ? " continued" : ""}${extraClass ? " " + extraClass : ""}`,
+  );
+
+  // Group chat: render sender avatar to the left of incoming bubbles (only on
+  // the first message of a run from that sender).
+  if (script.isGroup && !isOwner) {
+    const slot = el("div", "msg-avatar-slot");
+    if (!isContinued) {
+      const av = el("div", "msg-avatar");
+      const sender = script.participants.find((p) => p.id === msg.from);
+      if (sender) setAvatar(av, sender);
+      slot.appendChild(av);
+    }
+    row.appendChild(slot);
+  }
+
   const bubble = el(
     "div",
     `bubble ${msg.emphasis || "normal"} ${colorClassForSender(script, msg.from)}`,
@@ -116,18 +188,7 @@ function buildBubble(script, msg, isOwner, displayedTime, isContinued) {
     bubble.appendChild(senderName);
   }
 
-  if (msg.kind === "voice") {
-    bubble.classList.add("voice");
-    const play = el("div", "play");
-    play.textContent = "▶";
-    const wave = el("div", "wave");
-    const duration = el("div", "duration");
-    const secs = msg.voiceSeconds ?? 10;
-    duration.textContent = `0:${secs.toString().padStart(2, "0")}`;
-    bubble.append(play, wave, duration);
-  } else {
-    bubble.appendChild(document.createTextNode(msg.text));
-  }
+  bubble.appendChild(document.createTextNode(msg.text));
 
   const meta = el("div", "meta");
   const time = el("span");
@@ -143,11 +204,78 @@ function buildBubble(script, msg, isOwner, displayedTime, isContinued) {
 
 function buildTypingRow(script, fromId) {
   const row = el("div", "row in typing");
+  if (script.isGroup) {
+    const slot = el("div", "msg-avatar-slot");
+    const av = el("div", "msg-avatar");
+    const sender = script.participants.find((p) => p.id === fromId);
+    if (sender) setAvatar(av, sender);
+    slot.appendChild(av);
+    row.appendChild(slot);
+  }
   const bubble = el("div", `bubble ${colorClassForSender(script, fromId)}`);
   for (let i = 0; i < 3; i++) bubble.appendChild(el("div", "typing-dot"));
   row.appendChild(bubble);
   return row;
 }
+
+/* ---------------- Composer typing for owner messages ---------------- */
+
+function composer() {
+  return {
+    box: document.getElementById("composer-input"),
+    placeholder: document.getElementById("composer-placeholder"),
+    typed: document.getElementById("composer-typed"),
+    sendBtn: document.getElementById("send-btn"),
+  };
+}
+
+function resetComposer() {
+  const c = composer();
+  c.box.classList.remove("typing");
+  c.typed.textContent = "";
+  c.sendBtn.classList.remove("has-text", "pressed");
+}
+
+async function typeIntoComposer(text, totalMs) {
+  const c = composer();
+  c.box.classList.add("typing");
+  c.sendBtn.classList.add("has-text");
+  c.typed.textContent = "";
+
+  if (text.length === 0) return;
+  const perChar = Math.max(28, Math.min(140, totalMs / text.length));
+  for (let i = 0; i < text.length; i++) {
+    c.typed.textContent += text[i];
+    // Small jitter so it doesn't feel robotic.
+    const jitter = perChar * (0.7 + Math.random() * 0.6);
+    await sleep(jitter);
+    // Emit a keystroke event (audio synth can hook here later).
+    window.dispatchEvent(new CustomEvent("kbd-tap"));
+  }
+}
+
+async function sendFromComposer(script, msg, displayedTime, isContinued) {
+  const c = composer();
+  c.sendBtn.classList.add("pressed");
+  window.dispatchEvent(new CustomEvent("msg-send"));
+  await sleep(120);
+  c.sendBtn.classList.remove("pressed");
+
+  // Build the actual chat bubble with the fly-up animation.
+  const chat = chatEl();
+  const built = buildBubble(script, msg, true, displayedTime, isContinued, "flying");
+  chat.appendChild(built.row);
+  scrollToBottom();
+
+  // Clear the composer mid-flight so it feels like the text "left".
+  resetComposer();
+
+  // Let the fly animation play out before resolving.
+  await sleep(380);
+  return built;
+}
+
+/* ---------------- Main playback loop ---------------- */
 
 async function playScript(script, opts = {}) {
   const speed = opts.speed ?? 1;
@@ -155,9 +283,11 @@ async function playScript(script, opts = {}) {
 
   const chat = chatEl();
   chat.querySelectorAll(".row").forEach((n) => n.remove());
+  resetComposer();
 
   setStatusBar(script);
   setHeader(script);
+  await preloadAvatars(script);
 
   const headerStatus = document.getElementById("header-status");
   const originalStatus = headerStatus.textContent;
@@ -172,51 +302,55 @@ async function playScript(script, opts = {}) {
     const sender = script.participants.find((p) => p.id === msg.from);
     const isOwner = sender?.isOwner ?? false;
     const isContinued = msg.from === prevFrom;
+    const t = times[i];
+    const display = formatTime(t.hh, t.mm, script.meta.language);
 
     if (msg.preDelayMs > 0) await sleep(scale(msg.preDelayMs));
 
-    let typingRow = null;
-    if (!isOwner && msg.typingMs > 0) {
+    if (!isOwner) {
+      // Show "escribiendo…" header + typing bubble for incoming.
       headerStatus.textContent =
         script.meta.language === "es" ? "escribiendo…" : "typing…";
-      typingRow = buildTypingRow(script, msg.from);
+      const typingRow = buildTypingRow(script, msg.from);
       chat.appendChild(typingRow);
       scrollToBottom();
-      await sleep(scale(msg.typingMs));
+      if (msg.typingMs > 0) await sleep(scale(msg.typingMs));
+      typingRow.remove();
       headerStatus.textContent = originalStatus;
-    } else if (isOwner && msg.typingMs > 0) {
-      await sleep(scale(Math.min(msg.typingMs, 1200)));
-    }
 
-    if (typingRow) typingRow.remove();
-
-    const t = times[i];
-    const display = formatTime(t.hh, t.mm, script.meta.language);
-    const { row, meta } = buildBubble(script, msg, isOwner, display, isContinued);
-    chat.appendChild(row);
-    scrollToBottom();
-
-    if (isOwner) {
-      const tick = meta.querySelector(".tick-svg");
+      window.dispatchEvent(new CustomEvent("msg-receive"));
+      const built = buildBubble(script, msg, false, display, isContinued, "receiving");
+      chat.appendChild(built.row);
+      scrollToBottom();
+    } else {
+      // Owner: type in composer, then send.
+      await typeIntoComposer(msg.text, scale(Math.max(msg.typingMs, msg.text.length * 50)));
+      // Tiny pause to "look at the text" before tapping send.
+      await sleep(scale(200));
+      const built = await sendFromComposer(script, msg, display, isContinued);
+      const tick = built.meta.querySelector(".tick-svg");
       if (tick) {
         await sleep(scale(Math.min(msg.readDelayMs, 600)));
         if (msg.readDelayMs > 600) await sleep(scale(msg.readDelayMs - 600));
         tick.classList.add("read");
       }
     }
+
     prevFrom = msg.from;
   }
 
-  await sleep(scale(opts.endHoldMs ?? 1800));
+  await sleep(scale(opts.endHoldMs ?? 1500));
 }
 
-// Render a static script (no animation, no delays). Useful for snapshots.
+/* ---------------- Static render (for snapshots) ---------------- */
+
 async function renderStatic(script) {
   const chat = chatEl();
   chat.querySelectorAll(".row").forEach((n) => n.remove());
   document.body.classList.add("no-anim");
   setStatusBar(script);
   setHeader(script);
+  await preloadAvatars(script);
   const times = precomputeTimes(script);
   let prevFrom = null;
   script.messages.forEach((msg, i) => {

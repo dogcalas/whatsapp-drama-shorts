@@ -48,10 +48,11 @@ REGLAS DURAS:
   4) CIERRE: corto, fuerte. Puede ser silencio (un "..." sin respuesta), una bomba final, o un cliffhanger.
 - 2 o 3 participantes máximo. Si son 3, que sea claramente un grupo (chatName tipo "Las brujas 🔮" o "Trabajo 💀").
 - isOwner=true para el personaje cuya vista mostramos (sus mensajes van a la derecha en verde). Elige al protagonista que más conviene al drama: normalmente quien recibe la información o vive la revelación.
-- TIMINGS REALISTAS (esto es crítico para que parezca real):
-  - preDelayMs: pausa antes de empezar a escribir. Normal: 800-2500ms. Después de algo fuerte: 3000-6000ms. Después de un "..." dramático: hasta 8000ms.
-  - typingMs: tiempo del indicador "escribiendo...". Aproximadamente 50ms por caracter del mensaje, mínimo 600ms, máximo 4500ms. Mensajes cortos casi sin typing visible (200-500ms).
-  - readDelayMs: cuánto tarda el otro en ver el mensaje. 400-1500ms normalmente. En momentos tensos puede ser más (la persona deja en visto).
+- TIMINGS REALISTAS pero TENSOS — NO uses pausas largas:
+  - preDelayMs: pausa antes de empezar a escribir. Normal: 600-1500ms. Después de algo fuerte: 1500-2500ms. NUNCA pongas más de 3500ms, y eso solo UNA vez en todo el guion (el momento del twist o del silencio que más duele).
+  - typingMs: tiempo del indicador "escribiendo...". Aproximadamente 40ms por caracter del mensaje, mínimo 400ms, máximo 3500ms. Mensajes cortos casi sin typing visible (200-400ms).
+  - readDelayMs: cuánto tarda el otro en ver el mensaje. 300-1000ms normalmente. Máximo 1500ms.
+  - El guion entero debe sentirse rápido y tenso. Si sumas todos los preDelay y typing, el total no debe pasar de 55 segundos.
   - emphasis: usa "dramatic" en el twist, "angry" en confrontación, "sad" en quiebre emocional, "cold" cuando alguien responde seco a propósito.
 
 TEMA ESPECÍFICO PARA ESTE GUION: __THEME_BRIEF__
@@ -75,10 +76,11 @@ HARD RULES:
   4) CLOSE: short, hard. Can be silence (a "..." with no reply), a final bomb, or a cliffhanger.
 - Maximum 2 or 3 participants. If 3, clearly a group (chatName like "The coven 🔮" or "Work 💀").
 - isOwner=true for the character whose view we show (their messages go right in green). Pick the protagonist who fits the drama: usually the one receiving info or living the reveal.
-- REALISTIC TIMINGS (critical for it to feel real):
-  - preDelayMs: pause before typing starts. Normal: 800-2500ms. After something heavy: 3000-6000ms. After dramatic "...": up to 8000ms.
-  - typingMs: "typing..." indicator time. About 50ms per char, min 600ms, max 4500ms. Short messages almost no visible typing (200-500ms).
-  - readDelayMs: how long until the other reads. 400-1500ms normally. In tense moments longer (left on read).
+- REALISTIC but TENSE timings — NO long pauses:
+  - preDelayMs: pause before typing starts. Normal: 600-1500ms. After something heavy: 1500-2500ms. NEVER more than 3500ms, and only ONCE in the whole script (the twist or the silence that hurts most).
+  - typingMs: "typing..." indicator time. About 40ms per char, min 400ms, max 3500ms. Short messages almost no visible typing (200-400ms).
+  - readDelayMs: how long until the other reads. 300-1000ms normally. Max 1500ms.
+  - The full script should feel fast and tense. Total preDelay+typing across all messages must be under 55 seconds.
   - emphasis: "dramatic" on twist, "angry" on confrontation, "sad" on emotional break, "cold" when someone replies dryly on purpose.
 
 SPECIFIC THEME FOR THIS SCRIPT: __THEME_BRIEF__
