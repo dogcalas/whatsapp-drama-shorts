@@ -25,7 +25,7 @@ const SIMULATOR_INDEX = path.join(SIMULATOR_DIR, "index.html");
 
 interface RawEvent {
   tMs: number;
-  kind: "type-start" | "type-end" | "receive";
+  kind: "type-start" | "type-end" | "receive" | "send";
 }
 
 function eventsToTimeline(raw: RawEvent[]): TimelineEvent[] {
@@ -45,6 +45,8 @@ function eventsToTimeline(raw: RawEvent[]): TimelineEvent[] {
       }
     } else if (e.kind === "receive") {
       out.push({ tSec: e.tMs / 1000, kind: "receive" });
+    } else if (e.kind === "send") {
+      out.push({ tSec: e.tMs / 1000, kind: "send" });
     }
   }
   return out;
@@ -70,25 +72,26 @@ export async function recordScript(opts: RecordOptions): Promise<string> {
       },
     });
 
-    const recordStartT = Date.now();
     const page = await context.newPage();
+    // Recording is live now. Use this anchor to compute the video trim.
+    const recordStartT = Date.now();
 
-    // Will be populated as the page fires audio notifications. Timestamps
-    // are captured at receipt in Node, relative to playStartT (set below).
+    // Page emits its own performance.now() timestamp with each event so we
+    // don't accumulate the CDP transport latency in our timeline.
     const rawEvents: RawEvent[] = [];
-    let playStartT = 0;
-
-    await page.exposeFunction("__audioNotify", (kind: RawEvent["kind"]) => {
-      if (playStartT === 0) return;
-      rawEvents.push({ tMs: Date.now() - playStartT, kind });
-    });
+    await page.exposeFunction(
+      "__audioNotify",
+      (kind: RawEvent["kind"], tMs: number) => {
+        rawEvents.push({ tMs, kind });
+      },
+    );
 
     const url = pathToFileURL(SIMULATOR_INDEX).toString();
     await page.goto(url);
     await page.waitForFunction(() => (window as any).__playReady === true);
     await page.waitForTimeout(200);
 
-    playStartT = Date.now();
+    const playStartT = Date.now();
     await page.evaluate(
       async ([script, options]) => {
         await (window as any).__playScript(script, options);

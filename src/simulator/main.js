@@ -237,12 +237,15 @@ function resetComposer() {
 }
 
 // Fire-and-forget audio notification. The recorder hooks `__audioNotify`
-// via Playwright's exposeFunction and timestamps each call when it arrives,
-// so audio aligns with the *actual* moment the UI updated (resilient to any
-// JS/DOM overhead that would otherwise drift our pre-computed timeline).
+// via Playwright's exposeFunction. We pass the page-side performance.now()
+// timestamp so Node ignores the CDP transport latency entirely — what
+// matters is when the *page* fired the event, not when Node heard about it.
 function fire(kind) {
   try {
-    if (typeof window.__audioNotify === "function") window.__audioNotify(kind);
+    if (typeof window.__audioNotify === "function") {
+      const t = performance.now() - (window.__playStartPerf || 0);
+      window.__audioNotify(kind, t);
+    }
   } catch {
     // no-op
   }
@@ -275,6 +278,7 @@ async function sendFromComposer(script, msg, displayedTime, isContinued) {
   const chat = chatEl();
   const built = buildBubble(script, msg, true, displayedTime, isContinued, "flying");
   chat.appendChild(built.row);
+  fire("send");
   scrollToBottom();
 
   // Clear the composer mid-flight so it feels like the text "left".
@@ -303,6 +307,11 @@ async function playScript(script, opts = {}) {
   const originalStatus = headerStatus.textContent;
 
   const times = precomputeTimes(script);
+
+  // Anchor the audio timeline to the moment we *start* playing on the page.
+  // All `fire(kind)` calls below report (performance.now() - this anchor),
+  // so the recorder builds the audio track from page-time, not Node-time.
+  window.__playStartPerf = performance.now();
 
   if (opts.startDelayMs) await sleep(scale(opts.startDelayMs));
 

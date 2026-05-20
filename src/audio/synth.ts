@@ -11,6 +11,7 @@ export const SFX_DIR = path.resolve(__dirname, "..", "..", "assets", "sfx");
 
 const TYPING_SRC = path.join(SFX_DIR, "typing.mp3");
 const RECEIVE_SRC = path.join(SFX_DIR, "receive.mp3");
+const SEND_SRC = path.join(SFX_DIR, "send.mp3");
 
 async function exists(p: string): Promise<boolean> {
   return fs
@@ -20,7 +21,7 @@ async function exists(p: string): Promise<boolean> {
 }
 
 export async function ensureSfx(): Promise<void> {
-  for (const p of [TYPING_SRC, RECEIVE_SRC]) {
+  for (const p of [TYPING_SRC, RECEIVE_SRC, SEND_SRC]) {
     if (!(await exists(p))) {
       throw new Error(`Missing audio asset: ${path.relative(process.cwd(), p)}`);
     }
@@ -29,7 +30,8 @@ export async function ensureSfx(): Promise<void> {
 
 export type TimelineEvent =
   | { tSec: number; kind: "type"; durationMs: number }
-  | { tSec: number; kind: "receive" };
+  | { tSec: number; kind: "receive" }
+  | { tSec: number; kind: "send" };
 
 /**
  * Render a mono audio track that plays the typing sound during each owner
@@ -88,10 +90,15 @@ export async function renderAudioTrack(args: {
           `volume=0.9,` +
           `adelay=${delayMs}|${delayMs},apad[a${i}]`,
       );
-    } else {
+    } else if (evt.kind === "receive") {
       inputs.push("-i", RECEIVE_SRC);
       filters.push(
         `[${i}:a]volume=0.95,adelay=${delayMs}|${delayMs},apad[a${i}]`,
+      );
+    } else {
+      inputs.push("-i", SEND_SRC);
+      filters.push(
+        `[${i}:a]volume=0.85,adelay=${delayMs}|${delayMs},apad[a${i}]`,
       );
     }
     labels.push(`[a${i}]`);
@@ -130,15 +137,16 @@ export async function muxVideoAudio(args: {
   videoTrimMs?: number;
 }): Promise<void> {
   const trim = Math.max(0, args.videoTrimMs ?? 0);
-  // -ss before -i is fast and frame-accurate enough with re-encode.
-  const seekArgs = trim > 0 ? ["-ss", (trim / 1000).toFixed(3)] : [];
+  // -ss AFTER -i is frame-accurate (decodes from start, then seeks). WebM
+  // VP8 keyframes can be sparse, so -ss before -i would snap and drift.
+  const trimArgs = trim > 0 ? ["-ss", (trim / 1000).toFixed(3)] : [];
   await exec("ffmpeg", [
     "-y",
-    ...seekArgs,
     "-i",
     args.videoPath,
     "-i",
     args.audioPath,
+    ...trimArgs,
     "-map",
     "0:v:0",
     "-map",
