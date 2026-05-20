@@ -389,17 +389,18 @@ async function playScript(script, opts = {}) {
 
   const times = precomputeTimes(script);
 
-  // Anchor the audio timeline to the moment we *start* playing on the page.
-  // All `fire(kind)` calls below report (performance.now() - this anchor),
-  // and we also send the wall-clock equivalent (Date.now()) so the recorder
-  // can align the video trim to the same instant. Without this, Node uses
-  // its own pre-evaluate Date.now() which can be hundreds of ms earlier
-  // (preloadAvatars + setup), producing a constant offset between visuals
-  // and sound.
+  // Anchor for both audio timeline (legacy recorder) and video trim (screen
+  // recorder). Captured AFTER setHeader + preloadAvatars + loadSfx so that
+  // the trimmed video opens with a fully-ready chat (correct contact name,
+  // avatar, status) instead of the bare template.
   window.__playStartPerf = performance.now();
+  const anchorWallclock = Date.now();
   try {
     if (typeof window.__audioNotify === "function") {
-      window.__audioNotify("anchor", 0, Date.now());
+      window.__audioNotify("anchor", 0, anchorWallclock);
+    }
+    if (typeof window.__playAnchor === "function") {
+      window.__playAnchor(anchorWallclock);
     }
   } catch {
     // ignore

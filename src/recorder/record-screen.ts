@@ -152,11 +152,19 @@ export async function recordScriptScreen(opts: ScreenRecordOptions): Promise<str
   });
 
   let ffmpeg: ReturnType<typeof spawn> | null = null;
+  // Anchor reported by the player AFTER setup (setHeader + preloads).
+  // We trim the raw recording up to this wall-clock so the final MP4
+  // opens with a fully-ready chat — not the bare template, and not
+  // partway into playback.
+  let playerAnchorWallclock = 0;
   try {
     const context = await browser.newContext({
       viewport: { width: 1080, height: 1920 },
     });
     const page = await context.newPage();
+    await page.exposeFunction("__playAnchor", (wallclockMs: number) => {
+      playerAnchorWallclock = wallclockMs;
+    });
 
     // Serve the bundled SFX files to the in-browser fetch() calls.
     await page.route("**/sfx/*.mp3", async (route, request) => {
@@ -177,19 +185,15 @@ export async function recordScriptScreen(opts: ScreenRecordOptions): Promise<str
 
     // ----- Start ffmpeg recording (both x11 and pulse inputs) -----
     //
-    // x11grab's first frame takes ~1.5–2 s to deliver under Xvfb (encoder
-    // warmup + first keyframe), while PulseAudio's monitor starts giving
-    // packets almost immediately. With `-use_wallclock_as_timestamps`
-    // those packets get stamped *earlier* than the first video frame, so
-    // the recorded audio drifts ahead of the picture by exactly that
-    // warmup interval.
-    //
-    // Fix: delay the audio INPUT with -itsoffset by the empirical warmup
-    // amount. Tunable via DRAMA_AV_OFFSET_MS (default 2000 ms — what we
-    // measured under Xvfb + libx264 veryfast at 30 fps). On other hosts
-    // the value may differ; set the env var to override.
-    const audioOffsetMs = parseInt(process.env.DRAMA_AV_OFFSET_MS ?? "2000", 10);
+    // We deliberately do a two-pass capture: ffmpeg writes a "raw" file that
+    // includes the warmup + pre-playback wait, then a second ffmpeg pass
+    // trims exactly the wall-clock time that elapsed before we called
+    // evaluate(playScript). This is much more reliable than trying to coax
+    // x11grab into delivering its first frame at the right moment.
+    const audioOffsetMs = parseInt(process.env.DRAMA_AV_OFFSET_MS ?? "0", 10);
     const audioOffsetSec = (audioOffsetMs / 1000).toFixed(3);
+
+    const rawPath = outputPath.replace(/\.mp4$/i, ".raw.mp4");
 
     const ffmpegArgs = [
       "-hide_banner",
@@ -198,6 +202,8 @@ export async function recordScriptScreen(opts: ScreenRecordOptions): Promise<str
       "-y",
       "-thread_queue_size",
       "1024",
+      "-use_wallclock_as_timestamps",
+      "1",
       "-f",
       "x11grab",
       "-draw_mouse",
@@ -210,7 +216,9 @@ export async function recordScriptScreen(opts: ScreenRecordOptions): Promise<str
       `${display}.0+0,80`,
       "-thread_queue_size",
       "1024",
-      ...(audioOffsetMs > 0 ? ["-itsoffset", audioOffsetSec] : []),
+      "-use_wallclock_as_timestamps",
+      "1",
+      ...(audioOffsetMs !== 0 ? ["-itsoffset", audioOffsetSec] : []),
       "-f",
       "pulse",
       "-i",
@@ -221,19 +229,15 @@ export async function recordScriptScreen(opts: ScreenRecordOptions): Promise<str
       "veryfast",
       "-pix_fmt",
       "yuv420p",
-      "-movflags",
-      "+faststart",
       "-c:a",
       "aac",
       "-b:a",
       "128k",
-      outputPath,
+      rawPath,
     ];
-    ffmpeg = spawn("ffmpeg", ffmpegArgs, { env: pulseEnv });
 
-    if (process.env.DRAMA_DEBUG) {
-      process.stderr.write(`[debug] ffmpeg started, audio offset: ${audioOffsetMs}ms\n`);
-    }
+    const ffmpegSpawnT = Date.now();
+    ffmpeg = spawn("ffmpeg", ffmpegArgs, { env: pulseEnv });
 
     // Wait long enough for BOTH inputs to be alive before driving the
     // player. We're padding for the slower of the two (x11grab warmup).
@@ -243,6 +247,7 @@ export async function recordScriptScreen(opts: ScreenRecordOptions): Promise<str
     const startDelayMs = opts.startDelayMs ?? 600;
     const endHoldMs = opts.endHoldMs ?? 1500;
     const speed = opts.speed ?? 1;
+    const playStartT = Date.now();
     await page.evaluate(
       async ([script, options]) => {
         await (window as any).__playScript(script, options);
@@ -273,6 +278,45 @@ export async function recordScriptScreen(opts: ScreenRecordOptions): Promise<str
 
     await page.close();
     await context.close();
+
+    // ----- Second pass: trim the warmup + setup off the front.
+    //
+    // The player reports its own wall-clock anchor right *after* setHeader
+    // and preloadAvatars finish, so the trimmed video opens with a chat
+    // that already has the right contact name, avatar and "Today" pill —
+    // not the bare template, and not mid-playback.
+    const anchor = playerAnchorWallclock || playStartT;
+    const trimMs = Math.max(0, anchor - ffmpegSpawnT);
+    if (process.env.DRAMA_DEBUG) {
+      process.stderr.write(
+        `[debug] trim=${trimMs}ms (raw=${rawPath} → ${outputPath})\n`,
+      );
+    }
+    await exec("ffmpeg", [
+      "-hide_banner",
+      "-loglevel",
+      "error",
+      "-y",
+      "-i",
+      rawPath,
+      "-ss",
+      (trimMs / 1000).toFixed(3),
+      "-c:v",
+      "libx264",
+      "-preset",
+      "veryfast",
+      "-pix_fmt",
+      "yuv420p",
+      "-movflags",
+      "+faststart",
+      "-c:a",
+      "aac",
+      "-b:a",
+      "128k",
+      outputPath,
+    ]);
+    await fs.unlink(rawPath).catch(() => {});
+
     return outputPath;
   } finally {
     await browser.close().catch(() => {});
