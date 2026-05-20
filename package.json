@@ -12,19 +12,28 @@
     "render": "tsx src/cli.ts render",
     "shoot": "tsx src/cli.ts shoot",
     "serve": "tsx src/cli.ts serve",
+    "post": "tsx src/cli.ts post",
+    "sync-analytics": "tsx src/cli.ts sync-analytics",
+    "analyze-trends": "tsx src/cli.ts analyze-trends",
+    "daemon": "tsx src/cli.ts daemon",
     "typecheck": "tsc --noEmit",
     "postinstall": "playwright install chromium"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.40.0",
+    "better-sqlite3": "^11.5.0",
     "commander": "^12.1.0",
     "dotenv": "^16.4.5",
+    "googleapis": "^144.0.0",
+    "node-cron": "^3.0.3",
     "playwright": "1.56.1",
     "tsx": "^4.19.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.11",
     "@types/node": "^22.7.0",
+    "@types/node-cron": "^3.0.11",
     "typescript": "^5.6.0"
   }
 }
