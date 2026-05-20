@@ -215,6 +215,20 @@ body {
   animation: pop 220ms ease-out;
   transform-origin: bottom;
 }
+
+/* WhatsApp trick: reserve space at the end of the last text line for the
+   absolutely-positioned meta (time + ticks). The spacer is an inline-block
+   sized to match the meta width; the text flows around it, so short
+   messages like "qué" or "..." grow horizontally enough to fit the time. */
+.bubble::after {
+  content: "";
+  display: inline-block;
+  vertical-align: bottom;
+  height: 0;
+}
+.row.in .bubble::after  { width: 110px; }   /* "10:14 PM"        */
+.row.out .bubble::after { width: 150px; }   /* "10:14 PM ✓✓"     */
+.bubble.voice::after    { display: none; }  /* voice has its own layout */
 .row.in .bubble {
   background: var(--bubble-in);
   border-top-left-radius: 6px;

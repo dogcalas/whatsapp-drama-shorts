@@ -112,12 +112,13 @@ function pad2(n) {
 }
 
 function formatTime(hh, mm, lang) {
-  if (lang === "en") {
-    const ampm = hh >= 12 ? "PM" : "AM";
-    const h12 = hh % 12 || 12;
-    return `${h12}:${pad2(mm)} ${ampm}`;
-  }
-  return `${pad2(hh)}:${pad2(mm)}`;
+  // Always 12-hour with AM/PM. Spanish uses "p. m." / "a. m." conventionally
+  // (matches how WhatsApp renders timestamps in es-LA locales).
+  const isPm = hh >= 12;
+  const h12 = hh % 12 || 12;
+  const suffix =
+    lang === "es" ? (isPm ? "p. m." : "a. m.") : isPm ? "PM" : "AM";
+  return `${h12}:${pad2(mm)} ${suffix}`;
 }
 
 function precomputeTimes(script) {
