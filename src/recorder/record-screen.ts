@@ -85,12 +85,15 @@ export async function recordScriptScreen(opts: ScreenRecordOptions): Promise<str
   // ----- Background services -----
   const cleanupTasks: Array<() => Promise<void>> = [];
 
-  // 1) Xvfb
+  // 1) Xvfb. Screen is 1080×2000 so Chrome's UI bar (~80px tab strip +
+  // URL bar with no window manager to suppress them) sits in the top 80px
+  // and the actual 1080×1920 viewport sits beneath. ffmpeg then captures
+  // only that 1080×1920 region.
   if (!(await isProcessRunning("Xvfb"))) {
     await fs.unlink(`/tmp/.X${display.slice(1)}-lock`).catch(() => {});
     const xvfb = spawn(
       "Xvfb",
-      [display, "-screen", "0", "1080x1920x24", "-ac"],
+      [display, "-screen", "0", "1080x2000x24", "-ac"],
       { detached: true, stdio: "ignore" },
     );
     xvfb.unref();
@@ -129,17 +132,22 @@ export async function recordScriptScreen(opts: ScreenRecordOptions): Promise<str
   }
 
   // ----- Chromium under Xvfb -----
+  // Window size matches the Xvfb screen (1080×2000). Chrome's tab strip +
+  // URL bar take the top ~80px; the page content area is the remaining
+  // 1920px which is exactly what we crop in ffmpeg below.
   const browser = await chromium.launch({
     headless: false,
     env: pulseEnv,
     args: [
       "--no-sandbox",
-      "--kiosk",
-      `--window-size=1080,1920`,
+      "--window-size=1080,2000",
       "--window-position=0,0",
+      "--start-maximized",
       "--autoplay-policy=no-user-gesture-required",
       "--disable-features=Translate,InfiniteSessionRestore",
-      "--alsa-output-device=default",
+      "--hide-scrollbars",
+      "--no-first-run",
+      "--no-default-browser-check",
     ],
   });
 
@@ -168,6 +176,14 @@ export async function recordScriptScreen(opts: ScreenRecordOptions): Promise<str
     await page.waitForTimeout(400);
 
     // ----- Start ffmpeg recording (both x11 and pulse inputs) -----
+    // Key sync flags:
+    //   -use_wallclock_as_timestamps 1 forces ffmpeg to stamp each frame
+    //   with the system clock at capture instant, so the two inputs share
+    //   the same time reference regardless of their internal buffering.
+    //   Without this, PulseAudio's monitor source preroll (~1-2 s) ends up
+    //   marking early audio packets at t=0 → audio appears "ahead" of
+    //   video by that preroll amount.
+    //   -draw_mouse 0 hides the X cursor in the capture.
     const ffmpegArgs = [
       "-hide_banner",
       "-loglevel",
@@ -175,16 +191,22 @@ export async function recordScriptScreen(opts: ScreenRecordOptions): Promise<str
       "-y",
       "-thread_queue_size",
       "1024",
+      "-use_wallclock_as_timestamps",
+      "1",
       "-f",
       "x11grab",
+      "-draw_mouse",
+      "0",
       "-framerate",
       String(fps),
       "-video_size",
       "1080x1920",
       "-i",
-      `${display}.0`,
+      `${display}.0+0,80`,
       "-thread_queue_size",
       "1024",
+      "-use_wallclock_as_timestamps",
+      "1",
       "-f",
       "pulse",
       "-i",
@@ -201,13 +223,14 @@ export async function recordScriptScreen(opts: ScreenRecordOptions): Promise<str
       "aac",
       "-b:a",
       "128k",
-      "-shortest",
       outputPath,
     ];
     ffmpeg = spawn("ffmpeg", ffmpegArgs, { env: pulseEnv });
 
-    // Give ffmpeg a brief moment to open both inputs.
-    await new Promise((r) => setTimeout(r, 600));
+    // PulseAudio's monitor source typically needs ~1.5 s to deliver its
+    // first usable packet; if we evaluate playScript before that, the
+    // initial audio events fall on silence in the recording.
+    await new Promise((r) => setTimeout(r, 1800));
 
     // ----- Drive the player -----
     const startDelayMs = opts.startDelayMs ?? 600;

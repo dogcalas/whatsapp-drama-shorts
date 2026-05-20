@@ -65,6 +65,34 @@ npm run shoot -- --theme infidelity --language es \
   --prompt "Protagonista mujer de 25. Descubre la traición vía una historia de Instagram. Final: la mejor amiga estaba involucrada."
 ```
 
+## Docker (recommended for VPS)
+
+A `Dockerfile` is included that bundles Node, Chromium (via the Playwright
+base image), Xvfb, PulseAudio and ffmpeg — everything the screen-capture
+recorder needs. The entrypoint starts Xvfb + PulseAudio for you on every
+run.
+
+```bash
+docker build -t drama-shorts .
+
+# One-shot drama, video lands in ./output/
+docker run --rm \
+  -e ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY \
+  -v $(pwd)/output:/app/output \
+  drama-shorts \
+  shoot --theme infidelity --language es --screen
+
+# Render an existing script
+docker run --rm \
+  -e ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY \
+  -v $(pwd)/output:/app/output \
+  drama-shorts \
+  render --in output/some-script.json --screen
+```
+
+> On macOS the Linux-only screen-capture pipeline runs *inside* the
+> container, so you don't need Xvfb or PulseAudio on your host.
+
 ## Perfect-sync mode (Linux only): `--screen`
 
 The default recorder uses Playwright's WebM recordVideo and synthesises
